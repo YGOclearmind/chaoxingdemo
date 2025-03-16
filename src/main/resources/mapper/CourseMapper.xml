@@ -6,7 +6,6 @@
 
     <resultMap id="CourseResultMap" type="Course">
         <id property="id" column="id" />
-        <result property="courseId" column="course_id"/>
         <result property="courseName" column="course_name" />
         <result property="credit" column="credit" />
         <result property="teacherId" column="teacher_id" />
@@ -31,7 +30,7 @@
 <!--                and teacher_id like concat('%',#{teacher_id}, '%')-->
 <!--            </if>-->
 <!--        </where>-->
-        select * from course where course_id = #{course_id}
+        select * from course where id = #{id}
     </select>
 
 <!--    &lt;!&ndash; 新增课程 &ndash;&gt;-->

@@ -5,7 +5,7 @@ import com.hangzhoudianzi.demo.pojo.people.Course;
 
 public interface CourseServiceImp extends IService<Course> {
 
-    Course getCourseById(String courseId);
+    Course getCourseById(String id);
 
 //    List<Classroom> updateClassroom(Classroom classroom);
 

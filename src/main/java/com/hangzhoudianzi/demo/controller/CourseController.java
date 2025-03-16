@@ -22,9 +22,9 @@ public class CourseController {
         return list;
     }
 
-    @GetMapping("/getCourse/{course_id}")
-    public Course getCourseById(@PathVariable("course_id") String course_id) throws Exception {
-        Course course = courseMapper.getCourseById(course_id);
+    @GetMapping("/getCourse/{id}")
+    public Course getCourseById(@PathVariable("id") String id) throws Exception {
+        Course course = courseMapper.getCourseById(id);
         if (course == null) {
             throw new Exception("没有找到此教室");
         }
@@ -32,7 +32,7 @@ public class CourseController {
     }
     @PostMapping("/insertCourse")
     public String insertCourse(@RequestBody Course course) {
-        Course courses =courseService.getCourseById(course.getCourseId());
+        Course courses =courseService.getCourseById(course.getId());
         if (courses == null) {
             boolean save = courseService.save(course);
             if (save) {
@@ -46,13 +46,13 @@ public class CourseController {
 //        return courseService.updateCourse(course);
 //    }
 
-    @PostMapping("/deleteCourse/{course_id}")
-    public String deleteCourse(@PathVariable("course_id") String course_id) {
-        Course course = courseService.getCourseById(course_id);
+    @PostMapping("/deleteCourse/{id}")
+    public String deleteCourse(@PathVariable("id") String id) {
+        Course course = courseService.getCourseById(id);
         if(course == null){
             return "没有此课程";
         }else {
-            boolean b = courseService.removeById(course_id);
+            boolean b = courseService.removeById(id);
             if(b){
                 return "删除成功";
             }else return "删除失败";

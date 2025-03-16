@@ -12,8 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @Data
 public class Course {
-    private int id;
-    private String courseId;
+    private String id;
     private String courseName;
     private Integer credit;     //学分
     // 关联教师

@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Mapper;
 public interface CourseMapper extends BaseMapper<Course> {
 
 
-    Course getCourseById(String courseId);
+    Course getCourseById(String id);
 //    List<Course> insertCourse(Course course);
 //    List<Course> updateCourse(Course course);
 //    List<Course> deleteCourse(int id);

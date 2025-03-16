@@ -87,7 +87,7 @@ public class ScheduleService {
 
                     // 构造排课记录
                     Timetable timetable = new Timetable();
-                    timetable.setCourseId(course.getId());
+                    //timetable.setCourseId(course.getId());
                     timetable.setTeacherId(teacher.getId());
                     timetable.setClassroomId(availableClassroom.getId());
                     timetable.setScheduleTime(scheduleTime);

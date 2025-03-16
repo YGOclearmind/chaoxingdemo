@@ -13,7 +13,7 @@ public class CourseService extends ServiceImpl<CourseMapper, Course>
     private CourseMapper courseMapper;
 
     @Override
-    public Course getCourseById(String courseId) {
-        return courseMapper.getCourseById(courseId);
+    public Course getCourseById(String id) {
+        return courseMapper.getCourseById(id);
     }
 }
