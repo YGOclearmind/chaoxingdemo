@@ -9,28 +9,31 @@
         <result property="courseName" column="course_name" />
         <result property="credit" column="credit" />
         <result property="teacherId" column="teacher_id" />
+        <result property="beginTime" column="begin_time" />
+        <result property="endTime" column="end_time" />
+        <result property="date" column="date" />
     </resultMap>
 
 
     <!-- 根据ID查询课程 -->
     <select id="getCourseById" resultType="com.hangzhoudianzi.demo.pojo.people.Course">
-<!--        SELECT *-->
-<!--        FROM course-->
-<!--        <where>-->
-<!--            <if test="id != null">-->
-<!--                id = #{id}-->
-<!--            </if>-->
-<!--            <if test="course_name!= null">-->
-<!--                and course_name like concat('%',#{course_name}, '%')-->
-<!--            </if>-->
-<!--            <if test="credit!= null">-->
-<!--                and credit like =#{credit}-->
-<!--            </if>-->
-<!--            <if test="teacher_id!= null">-->
-<!--                and teacher_id like concat('%',#{teacher_id}, '%')-->
-<!--            </if>-->
-<!--        </where>-->
-        select * from course where id = #{id}
+        SELECT *
+        FROM course
+        <where>
+            <if test="id != null and id != '' ">
+                id = #{id}
+            </if>
+            <if test="courseName!= null and courseName != '' ">
+                and course_name like concat('%',#{courseName}, '%')
+            </if>
+            <if test="credit!= null and credit != '' ">
+                and credit =#{credit}
+            </if>
+            <if test="teacherId!= null and teacherId != '' ">
+                and teacher_id like concat('%',#{teacherId}, '%')
+            </if>
+        </where>
+
     </select>
 
 <!--    &lt;!&ndash; 新增课程 &ndash;&gt;-->

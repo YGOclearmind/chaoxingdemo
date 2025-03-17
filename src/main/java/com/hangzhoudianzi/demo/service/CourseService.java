@@ -6,6 +6,8 @@ import com.hangzhoudianzi.demo.pojo.people.Course;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class CourseService extends ServiceImpl<CourseMapper, Course>
         implements CourseServiceImp {
@@ -13,7 +15,7 @@ public class CourseService extends ServiceImpl<CourseMapper, Course>
     private CourseMapper courseMapper;
 
     @Override
-    public Course getCourseById(String id) {
-        return courseMapper.getCourseById(id);
+    public List<Course> getCourseById(String id, String courseName, Integer credit, String teacherId) {
+        return courseMapper.getCourseById(id, courseName, credit, teacherId);
     }
 }

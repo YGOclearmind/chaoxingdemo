@@ -1,18 +1,11 @@
-package com.hangzhoudianzi.demo.pojo.people;
+package com.hangzhoudianzi.demo.pojo.vo;
 
-
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
 import java.util.Date;
-import java.util.List;
 
-@AllArgsConstructor
-@NoArgsConstructor
 @Data
-public class Course {
+public class CourseInfo {
     private String id;
     private String courseName;
     private Integer credit;     //学分
@@ -21,5 +14,8 @@ public class Course {
     private Date beginTime;
     private Date endTime;
     private String date;
+
     //老师姓名
+    private String teacherName;
+
 }
