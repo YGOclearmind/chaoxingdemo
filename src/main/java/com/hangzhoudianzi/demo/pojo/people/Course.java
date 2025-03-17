@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
+import java.sql.Time;
 import java.util.Date;
 import java.util.List;
 
@@ -18,8 +19,8 @@ public class Course {
     private Integer credit;     //学分
     // 关联教师
     private Integer teacherId;
-    private Date beginTime;
-    private Date endTime;
+    private Time beginTime;
+    private Time endTime;
     private String date;
     //老师姓名
 }
