@@ -17,9 +17,9 @@ public class UserService {
     // 登录操作
     public String login(User user) {
         try {
-            User userExistN = userMapper.findByName(user.getUsername());
+            User userExistN = userMapper.findByName(user.getUsername(),user.getType());
             if (userExistN != null) {
-                String userExistP = userMapper.findPswByName(user.getUsername());
+                String userExistP = userMapper.findPswByName(user.getUsername(),user.getType());
                 if (userExistP.equals(user.getPassword())) {
                     return user.getUsername() + "登录成功，欢迎您！";
                 } else {
@@ -37,7 +37,7 @@ public class UserService {
     // 注册操作
     public String register(User user) {
         try {
-            User userExist = userMapper.findByName(user.getUsername());
+            User userExist = userMapper.findByName(user.getUsername(),user.getType());
 //            if (user.getUsername().equals("")) {
             if (user.getUsername() == null) {
                 return "用户名不能为空";

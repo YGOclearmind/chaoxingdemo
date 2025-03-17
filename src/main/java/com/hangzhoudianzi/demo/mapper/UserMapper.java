@@ -11,7 +11,7 @@ import java.util.List;
 @Mapper
 public interface UserMapper {
     List<User> findAll();
-    User findByName(String username);
-    String findPswByName(String username);
+    User findByName(String username,int type);
+    String findPswByName(String username,int type);
     void save(User user);
 }

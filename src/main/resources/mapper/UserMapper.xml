@@ -4,6 +4,14 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--xmlns="http://mybatis.org/schema/mybatis-mapper"-->
 <mapper namespace="com.hangzhoudianzi.demo.mapper.UserMapper">
+
+    <resultMap id="UserResultMap" type="User">
+        <id property="id" column="id" />
+        <result property="username" column="username" />
+        <result property="password" column="password" />
+        <result property="type" column="type" />
+    </resultMap>
+
     <select id="findAll" resultType="com.hangzhoudianzi.demo.pojo.people.User">
         select *
         from user
@@ -11,14 +19,14 @@
     <select id="findByName" resultType="com.hangzhoudianzi.demo.pojo.people.User">
         select *
         from user
-        where username = #{username}
+        where username = #{username} AND type = #{type}
     </select>
     <select id="findPswByName" resultType="java.lang.String">
         select password
         from user
-        where username = #{username}
+        where username = #{username} AND type = #{type}
     </select>
     <insert id="save">
-        insert into user(username, password) value (#{username},#{password})
+        insert into user(username, password, type ) value (#{username},#{password},#{type})
     </insert>
 </mapper>
