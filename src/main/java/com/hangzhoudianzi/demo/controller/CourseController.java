@@ -1,6 +1,8 @@
 package com.hangzhoudianzi.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.pagehelper.IPage;
 import com.hangzhoudianzi.demo.mapper.CourseMapper;
 import com.hangzhoudianzi.demo.mapper.TeacherMapper;
 import com.hangzhoudianzi.demo.pojo.people.Course;
@@ -20,16 +22,23 @@ public class CourseController {
     private CourseService courseService;
     @Autowired
     private CourseMapper courseMapper;
+
     @Autowired
     private TeacherMapper teacherMapper;
+//    private int page;
+//    private int num;
 
     @GetMapping("/getAllCourses")
-    public List<CourseInfo> getAllCourses() {
-        List<Course> list = courseService.list();
+    public List<CourseInfo> getAllCourses(int page, int num) {
+        //使用mybatis-plus写sql
 
-        //返回的集合
-        List<CourseInfo> courseInfos = new ArrayList<>();
-        for (Course course : list) {
+        Page<Course> page1 = new Page<>(page, num);
+        QueryWrapper<Course> queryWrapper = new QueryWrapper<>();
+        Page<Course> coursePage = courseMapper.selectPage(page1, queryWrapper);
+
+        List<Course> records = coursePage.getRecords();
+        List<CourseInfo>  courseInfos= new ArrayList<>();
+        for (Course course : records) {
 
             CourseInfo courseInfo = new CourseInfo();
             courseInfo.setId(course.getId());
