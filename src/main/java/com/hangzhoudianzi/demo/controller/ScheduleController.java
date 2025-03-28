@@ -36,4 +36,6 @@ public class ScheduleController {
     public List<Timetable> getAllTimetables() {
         return timetableService.getAllTimetables();
     }
+
+
 }

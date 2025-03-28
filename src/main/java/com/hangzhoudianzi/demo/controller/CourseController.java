@@ -2,7 +2,7 @@ package com.hangzhoudianzi.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.github.pagehelper.IPage;
+//import com.github.pagehelper.IPage;
 import com.hangzhoudianzi.demo.mapper.CourseMapper;
 import com.hangzhoudianzi.demo.mapper.TeacherMapper;
 import com.hangzhoudianzi.demo.pojo.people.Course;
