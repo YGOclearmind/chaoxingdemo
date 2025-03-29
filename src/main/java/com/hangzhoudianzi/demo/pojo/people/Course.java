@@ -31,7 +31,7 @@ public class Course {
     private String classesId;
     private String classesName;
     private String creditHourType;
-    private String priority;
+    private String priority;//排课优先级
     private String classSize;
     private String courseNature;
     private String externallyHire;
