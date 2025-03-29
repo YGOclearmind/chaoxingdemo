@@ -23,7 +23,7 @@ public class TeacherController {
     }
 
     @GetMapping("/getTeacherById/{id}")
-    public Teacher getTeacherById(@PathVariable("id") int id) throws Exception {
+    public Teacher getTeacherById(@PathVariable("id") String id) throws Exception {
         Teacher teachers = teacherMapper.getTeacherById(id);
         if(teachers == null){
             throw new Exception("没有找到此老师");
@@ -48,7 +48,7 @@ public class TeacherController {
 //    }
 
     @PostMapping("/deleteTeacher/{id}")
-    public String deleteTeacher(@PathVariable("id") int id) {
+    public String deleteTeacher(@PathVariable("id") String id) {
         Teacher teacher = teacherService.getTeacherById(id);
         if(teacher == null){
             return "没有此老师";

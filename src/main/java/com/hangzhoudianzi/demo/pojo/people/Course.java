@@ -16,11 +16,16 @@ import java.util.List;
 public class Course {
     private String id;
     private String courseName;
-    private Integer credit;     //学分
     // 关联教师
-    private Integer teacherId;
-    private Time beginTime;
-    private Time endTime;
+    private String teacherId;
+    private double credit;     //学分
+    private int beginWeek;
+    private int endWeek;
+    private int consecutiveSections;
+    private String classroomType;
+    private String classroom;
+    private String building;
     private String date;
+
     //老师姓名
 }

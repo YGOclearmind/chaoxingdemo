@@ -49,7 +49,8 @@ public class ScheduleService {
      */
     class Chromosome {
         // 基因序列，每个元素代表一个课程的安排，包含：[课程ID, 教师ID, 教室ID, 星期几, 第几节课]
-        List<int[]> genes;
+        // 注意: 前三个元素(courseId, teacherId, classroomId)是字符串类型
+        List<Object[]> genes;
         // 适应度分数
         double fitness;
         
@@ -58,7 +59,7 @@ public class ScheduleService {
             this.fitness = 0.0;
         }
         
-        public Chromosome(List<int[]> genes) {
+        public Chromosome(List<Object[]> genes) {
             this.genes = genes;
             this.fitness = 0.0;
         }
@@ -66,7 +67,7 @@ public class ScheduleService {
         // 深拷贝构造函数
         public Chromosome(Chromosome other) {
             this.genes = new ArrayList<>();
-            for (int[] gene : other.genes) {
+            for (Object[] gene : other.genes) {
                 this.genes.add(gene.clone());
             }
             this.fitness = other.fitness;
@@ -203,16 +204,16 @@ public class ScheduleService {
         Chromosome chromosome = new Chromosome();
         
         for (Course course : courses) {
-            int courseId = Integer.parseInt(course.getId());
-            int teacherId = course.getTeacherId();
+            String courseId = course.getId();
+            String teacherId = String.valueOf(course.getTeacherId());
             
             // 随机选择教室、星期和节次
-            int classroomId = classrooms.get(random.nextInt(classrooms.size())).getId();
+            String classroomId = classrooms.get(random.nextInt(classrooms.size())).getId();
             int day = random.nextInt(DAYS) + 1;
             int period = random.nextInt(PERIODS_PER_DAY) + 1;
             
             // 添加基因 [课程ID, 教师ID, 教室ID, 星期几, 第几节课]
-            chromosome.genes.add(new int[]{courseId, teacherId, classroomId, day, period});
+            chromosome.genes.add(new Object[]{courseId, teacherId, classroomId, day, period});
         }
         
         return chromosome;
@@ -235,15 +236,15 @@ public class ScheduleService {
         int conflictCount = 0;
         
         // 用于检测冲突的映射
-        Map<String, List<int[]>> teacherTimeMap = new HashMap<>();  // 教师-时间冲突
-        Map<String, List<int[]>> classroomTimeMap = new HashMap<>(); // 教室-时间冲突
+        Map<String, List<Object[]>> teacherTimeMap = new HashMap<>();  // 教师-时间冲突
+        Map<String, List<Object[]>> classroomTimeMap = new HashMap<>(); // 教室-时间冲突
         
         // 检查每个基因（课程安排）
-        for (int[] gene : chromosome.genes) {
-            int teacherId = gene[1];
-            int classroomId = gene[2];
-            int day = gene[3];
-            int period = gene[4];
+        for (Object[] gene : chromosome.genes) {
+            String teacherId = (String) gene[1];
+            String classroomId = (String) gene[2];
+            int day = (int) gene[3];
+            int period = (int) gene[4];
             
             // 检查教师时间冲突
             String teacherTimeKey = teacherId + "-" + day + "-" + period;
@@ -261,13 +262,13 @@ public class ScheduleService {
         }
         
         // 统计冲突数
-        for (List<int[]> classes : teacherTimeMap.values()) {
+        for (List<Object[]> classes : teacherTimeMap.values()) {
             if (classes.size() > 1) {
                 conflictCount += classes.size() - 1;
             }
         }
         
-        for (List<int[]> classes : classroomTimeMap.values()) {
+        for (List<Object[]> classes : classroomTimeMap.values()) {
             if (classes.size() > 1) {
                 conflictCount += classes.size() - 1;
             }
@@ -343,7 +344,7 @@ public class ScheduleService {
         
         for (int i = 0; i < chromosome.genes.size(); i++) {
             if (random.nextDouble() < MUTATION_RATE) {
-                int[] gene = chromosome.genes.get(i);
+                Object[] gene = chromosome.genes.get(i);
                 
                 // 随机决定变异什么属性（教室、星期、节次）
                 int mutationType = random.nextInt(3);
@@ -374,12 +375,12 @@ public class ScheduleService {
         // timetableMapper.deleteAllTimetables();
         
         // 保存新的排课方案
-        for (int[] gene : chromosome.genes) {
-            int courseId = gene[0];
-            int teacherId = gene[1];
-            int classroomId = gene[2];
-            int day = gene[3];
-            int period = gene[4];
+        for (Object[] gene : chromosome.genes) {
+            String courseId = (String) gene[0];
+            String teacherId = (String) gene[1];
+            String classroomId = (String) gene[2];
+            int day = (int) gene[3];
+            int period = (int) gene[4];
             
             // 计算具体日期和时间
             Date scheduleTime = calculateScheduleTime(day, period);
@@ -662,8 +663,8 @@ public class ScheduleService {
             return null;
         }
         
-        // 创建已占用教室ID集合
-        Set<Integer> occupiedClassrooms = new HashSet<>();
+        // 创建已占用教室ID集合，使用String类型
+        Set<String> occupiedClassrooms = new HashSet<>();
         
         // 找出在指定时间段已被占用的教室
         for (Timetable entry : scheduleEntries) {

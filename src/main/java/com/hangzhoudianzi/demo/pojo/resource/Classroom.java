@@ -13,9 +13,13 @@ import javax.persistence.ManyToOne;
 @NoArgsConstructor
 @Data
 public class Classroom {
-    private int id;
+    private String id;
+    private String name;
     private String building;
-    private String roomNumber;
-    private Integer capacity;
+    private int floor;
+    private String type;
+    private int capacity;
+    private String campus;
+    private String managementDepartme;
 
 }

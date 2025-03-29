@@ -17,7 +17,7 @@ public class ClassroomService extends ServiceImpl<ClassroomMapper,Classroom>
     private ClassroomMapper classroomMapper;
 
     @Override
-    public Classroom getClassroomById(int id) {
+    public Classroom getClassroomById(String id) {
         return classroomMapper.getClassroomById(id);
     }
 

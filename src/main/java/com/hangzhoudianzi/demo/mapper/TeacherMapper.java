@@ -8,6 +8,6 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface TeacherMapper extends BaseMapper<Teacher> {
 
-    Teacher getTeacherById(int id);
+    Teacher getTeacherById(String id);
 
 }

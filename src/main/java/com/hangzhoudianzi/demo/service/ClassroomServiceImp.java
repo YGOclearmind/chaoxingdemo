@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface ClassroomServiceImp extends IService<Classroom> {
 
-    Classroom getClassroomById(int id);
+    Classroom getClassroomById(String id);
 
 //    List<Classroom> updateClassroom(Classroom classroom);
 

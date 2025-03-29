@@ -10,7 +10,7 @@ import java.util.List;
 @Mapper
 public interface ClassroomMapper extends BaseMapper<Classroom> {
 
-    Classroom getClassroomById(int id);
+    Classroom getClassroomById(String id);
 
 
 //    List<Classroom> updateClassroom(Classroom classroom);

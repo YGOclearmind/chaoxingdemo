@@ -13,7 +13,7 @@ public class TeacherService extends ServiceImpl<TeacherMapper, Teacher>
     @Autowired
     private TeacherMapper teacherMapper;
     @Override
-    public Teacher getTeacherById(int id){
+    public Teacher getTeacherById(String id){
         return teacherMapper.getTeacherById(id);
     }
 

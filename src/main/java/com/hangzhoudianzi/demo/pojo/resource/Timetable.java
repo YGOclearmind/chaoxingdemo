@@ -11,9 +11,9 @@ import java.util.Date;
 @AllArgsConstructor
 public class Timetable {
     private Integer id;
-    private Integer courseId;
-    private Integer teacherId;
-    private Integer classroomId;
+    private String courseId;
+    private String teacherId;
+    private String classroomId;
     private Date scheduleTime;  // 可扩展为具体的周次、节次等
 
 }

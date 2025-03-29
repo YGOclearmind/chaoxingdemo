@@ -24,7 +24,7 @@ public class ClassroomController {
     }
 
     @GetMapping("/getClassroom/{id}")
-    public Classroom getClassroomById(@PathVariable("id") int id) throws Exception {
+    public Classroom getClassroomById(@PathVariable("id") String id) throws Exception {
         Classroom classrooms = classroomMapper.getClassroomById(id);
         if (classrooms == null) {
             throw new Exception("没有找到此教室");
@@ -45,7 +45,7 @@ public class ClassroomController {
 
 
     @PostMapping("/deleteClassroom/{id}")
-    public String deleteClassroom(@PathVariable("id") int id) {
+    public String deleteClassroom(@PathVariable("id") String id) {
     Classroom classroom = classroomService.getClassroomById(id);
     if(classroom == null){
         return "没有此教室";

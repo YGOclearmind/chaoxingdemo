@@ -5,7 +5,7 @@ import com.hangzhoudianzi.demo.pojo.people.Teacher;
 
 public interface TeacherServiceImp extends IService<Teacher> {
 
-    Teacher getTeacherById(int id);
+    Teacher getTeacherById(String id);
 
 //    List<Classroom> updateClassroom(Classroom classroom);
 

@@ -7,8 +7,12 @@
     <resultMap id="ClassroomResultMap" type="Classroom">
         <id property="id" column="id"/>
         <result property="building" column="building"/>
-        <result property="roomNumber" column="room_number"/>
+        <result property="name" column="name"/>
         <result property="capacity" column="capacity"/>
+        <result property="floor" column="floor"/>
+        <result property="type" column="type"/>
+        <result property="campus" column="campus"/>
+        <result property="managementDepartme" column="management_Departme"/>
     </resultMap>
 
 

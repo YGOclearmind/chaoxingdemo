@@ -44,8 +44,12 @@ public class CourseController {
             courseInfo.setId(course.getId());
             courseInfo.setCourseName(course.getCourseName());
             courseInfo.setCredit(course.getCredit());
-            courseInfo.setBeginTime(course.getBeginTime());
-            courseInfo.setEndTime(course.getEndTime());
+            courseInfo.setBeginWeek(course.getBeginWeek());
+            courseInfo.setEndWeek(course.getEndWeek());
+            courseInfo.setConsecutiveSections(course.getConsecutiveSections());
+            courseInfo.setClassroomType(course.getClassroomType());
+            courseInfo.setClassroom(course.getClassroom());
+            courseInfo.setBuilding(course.getBuilding());
             courseInfo.setDate(course.getDate());
             //查询老师的信息
             Teacher teacher = teacherMapper.selectById(course.getTeacherId());
@@ -60,9 +64,9 @@ public class CourseController {
     @GetMapping("/getCourse")
     public List<Course> getCourseById(@RequestParam(value = "id", required = false) String id,
                                       @RequestParam(value = "courseName", required = false) String courseName,
-                                      @RequestParam(value = "credit", required = false) Integer credit,
+                                      @RequestParam(value = "credit", required = false) double credit,
                                       @RequestParam(value = "teacherId", required = false) String teacherId) throws Exception {
-        List<Course> course = courseService.getCourseById(id, courseName, credit, teacherId);
+        List<Course> course = courseService.getCourseById(id, courseName,  credit, teacherId);
         if (course.size() == 0) {
             throw new Exception("没有找到此课程");
         }
