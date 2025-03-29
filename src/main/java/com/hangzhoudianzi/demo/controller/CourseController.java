@@ -42,6 +42,7 @@ public class CourseController {
 
             CourseInfo courseInfo = new CourseInfo();
             courseInfo.setId(course.getId());
+            courseInfo.setSemester(course.getSemester());
             courseInfo.setCourseName(course.getCourseName());
             courseInfo.setCredit(course.getCredit());
             courseInfo.setBeginWeek(course.getBeginWeek());
@@ -51,6 +52,15 @@ public class CourseController {
             courseInfo.setClassroom(course.getClassroom());
             courseInfo.setBuilding(course.getBuilding());
             courseInfo.setDate(course.getDate());
+            courseInfo.setCompositionClasses(course.getCompositionClasses());
+            courseInfo.setClassesId(course.getClassesId());
+            courseInfo.setClassesName(course.getClassesName());
+            courseInfo.setCreditHourType(course.getCreditHourType());
+            courseInfo.setPriority(course.getPriority());
+            courseInfo.setClassSize(course.getClassSize());
+            courseInfo.setCourseNature(course.getCourseNature());
+            courseInfo.setExternallyHire(course.getExternallyHire());
+            courseInfo.setDepartment(course.getDepartment());
             //查询老师的信息
             Teacher teacher = teacherMapper.selectById(course.getTeacherId());
             courseInfo.setTeacherName(teacher.getName());

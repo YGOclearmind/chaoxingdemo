@@ -7,6 +7,7 @@
     <resultMap id="CourseResultMap" type="Course">
         <id property="id" column="id" />
         <result property="courseName" column="course_name" />
+        <result property="semester" column="semester" />
         <result property="credit" column="credit" />
         <result property="teacherId" column="teacher_id" />
         <result property="beginWeek" column="begin_week" />
@@ -16,6 +17,15 @@
         <result property="classroom" column="classroom" />
         <result property="building" column="building" />
         <result property="date" column="date" />
+        <result property="compositionClasses" column="composition_classes" />
+        <result property="classesId" column="classes_id" />
+        <result property="classesName" column="classes_name" />
+        <result property="creditHourType" column="credit_hour_type" />
+        <result property="priority" column="priority" />
+        <result property="classSize" column="class_size" />
+        <result property="courseNature" column="course_nature" />
+        <result property="externallyHire" column="externally_hire" />
+        <result property="department" column="department" />
     </resultMap>
 
 
