@@ -19,7 +19,7 @@ public class Course {
     private String courseName;
     // 关联教师
     private String teacherId;
-    private double credit;     //学分
+    private Double credit;     //学分
     private int beginWeek;
     private int endWeek;
     private int consecutiveSections;
