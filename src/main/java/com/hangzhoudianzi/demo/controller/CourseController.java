@@ -74,7 +74,7 @@ public class CourseController {
     @GetMapping("/getCourse")
     public List<Course> getCourseById(@RequestParam(value = "id", required = false) String id,
                                       @RequestParam(value = "courseName", required = false) String courseName,
-                                      @RequestParam(value = "credit", required = false) double credit,
+                                      @RequestParam(value = "credit", required = false) Double credit,
                                       @RequestParam(value = "teacherId", required = false) String teacherId) throws Exception {
         List<Course> course = courseService.getCourseById(id, courseName,  credit, teacherId);
         if (course.size() == 0) {

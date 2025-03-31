@@ -15,7 +15,7 @@ public class CourseService extends ServiceImpl<CourseMapper, Course>
     private CourseMapper courseMapper;
 
     @Override
-    public List<Course> getCourseById(String id, String courseName, double credit, String teacherId) {
+    public List<Course> getCourseById(String id, String courseName, Double credit, String teacherId) {
         return courseMapper.getCourseById(id, courseName, credit, teacherId);
     }
 }
