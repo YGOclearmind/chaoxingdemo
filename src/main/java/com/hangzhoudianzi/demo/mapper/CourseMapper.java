@@ -10,8 +10,9 @@ import java.util.List;
 public interface CourseMapper extends BaseMapper<Course> {
 
 
-    List<Course> getCourseById(String id, String courseName, Double credit, String teacherId);
+    List<Course> getCoursesById(String id, String courseName, Double credit, String teacherId);
 //    List<Course> insertCourse(Course course);
 //    List<Course> updateCourse(Course course);
 //    List<Course> deleteCourse(int id);
+    Course getCourseById(String id) ;
 }

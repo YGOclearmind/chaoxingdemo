@@ -7,6 +7,7 @@ import com.hangzhoudianzi.demo.mapper.CourseMapper;
 import com.hangzhoudianzi.demo.mapper.TeacherMapper;
 import com.hangzhoudianzi.demo.pojo.people.Course;
 import com.hangzhoudianzi.demo.pojo.people.Teacher;
+import com.hangzhoudianzi.demo.pojo.resource.Classroom;
 import com.hangzhoudianzi.demo.pojo.vo.CourseInfo;
 import com.hangzhoudianzi.demo.service.CourseService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,18 +72,25 @@ public class CourseController {
         return courseInfos;
     }
 
-    @GetMapping("/getCourse")
-    public List<Course> getCourseById(@RequestParam(value = "id", required = false) String id,
+    @GetMapping("/getCourses")
+    public List<Course> getCoursesById(@RequestParam(value = "id", required = false) String id,
                                       @RequestParam(value = "courseName", required = false) String courseName,
                                       @RequestParam(value = "credit", required = false) Double credit,
                                       @RequestParam(value = "teacherId", required = false) String teacherId) throws Exception {
-        List<Course> course = courseService.getCourseById(id, courseName,  credit, teacherId);
+        List<Course> course = courseService.getCoursesById(id, courseName,  credit, teacherId);
         if (course.size() == 0) {
             throw new Exception("没有找到此课程");
         }
         return course;
     }
-
+    @GetMapping("/getCourse/{id}")
+    public Course getCourseById(@PathVariable("id") String id) throws Exception {
+        Course course = courseMapper.getCourseById(id);
+        if (course == null) {
+            throw new Exception("没有找到此课程");
+        }
+        return course;
+    }
     @PostMapping("/insertCourse")
     public String insertCourse(@RequestBody Course course) {
         Course courses = courseService.getById(course.getId());

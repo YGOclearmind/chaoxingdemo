@@ -30,7 +30,7 @@
 
 
     <!-- 根据ID查询课程 -->
-    <select id="getCourseById" resultType="com.hangzhoudianzi.demo.pojo.people.Course">
+    <select id="getCoursesById" resultType="com.hangzhoudianzi.demo.pojo.people.Course">
         SELECT *
         FROM course
         <where>
@@ -49,7 +49,25 @@
         </where>
 
     </select>
-
+    <select id="getCourseById" resultType="com.hangzhoudianzi.demo.pojo.people.Course">
+        <!--        SELECT *-->
+        <!--        FROM classroom-->
+        <!--        <where>-->
+        <!--            <if test="id != null">-->
+        <!--                id = #{id}-->
+        <!--            </if>-->
+        <!--            <if test="building!= null">-->
+        <!--                and building like concat('%',#{building}, '%')-->
+        <!--            </if>-->
+        <!--            <if test="room_number!= null">-->
+        <!--                and room_number like concat('%',#{room_number}, '%')-->
+        <!--            </if>-->
+        <!--            <if test="capacity!= null">-->
+        <!--                and capacity =#{capacity}-->
+        <!--            </if>-->
+        <!--        </where>-->
+        select * from course where id =#{id} LIMIT 1
+    </select>
 <!--    &lt;!&ndash; 新增课程 &ndash;&gt;-->
 <!--    <insert id="insertCourse" parameterType="Course">-->
 <!--        INSERT INTO course (id, course_name, credit, teacher_id)-->

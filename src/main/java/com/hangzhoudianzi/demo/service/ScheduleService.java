@@ -32,6 +32,7 @@ public class ScheduleService {
     @Autowired
     private CourseService courseService;
 
+
     // 遗传算法参数
     private static final int POPULATION_SIZE = 50;       // 种群大小
     private static final int MAX_GENERATIONS = 100;      // 最大迭代次数

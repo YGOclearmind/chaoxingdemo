@@ -7,9 +7,9 @@ import java.util.List;
 
 public interface CourseServiceImp extends IService<Course> {
 
-    List<Course> getCourseById(String id, String courseName, Double credit, String teacherId);
+    List<Course> getCoursesById(String id, String courseName, Double credit, String teacherId);
 
 //    List<Classroom> updateClassroom(Classroom classroom);
-
+    Course getCourseById(String id) ;
 }
 
