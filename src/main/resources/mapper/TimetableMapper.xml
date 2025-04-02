@@ -12,17 +12,44 @@
         <result property="scheduleTime" column="schedule_time" />
         <result property="periodInfo" column="period_info" />
         <result property="dayOfWeek" column="day_of_week" />
+        <result property="classId" column="class_id" />
+        <result property="className" column="class_name" />
     </resultMap>
 
     <!-- 插入课表记录 - 包含period_info字段和day_of_week字段 -->
-    <insert id="insertTimetable" parameterType="Timetable">
-        INSERT INTO timetable (course_id, teacher_id, classroom_id, schedule_time, period_info, day_of_week)
-        VALUES (#{courseId}, #{teacherId}, #{classroomId}, #{scheduleTime}, #{periodInfo}, #{dayOfWeek})
+    <insert id="insertTimetable" parameterType="com.hangzhoudianzi.demo.pojo.resource.Timetable">
+        INSERT INTO timetable (
+            course_id, teacher_id, classroom_id, 
+            schedule_time, period_info, day_of_week,
+            class_id
+        ) VALUES (
+            #{courseId}, #{teacherId}, #{classroomId}, 
+            #{scheduleTime}, #{periodInfo}, #{dayOfWeek},
+            #{classId}
+        )
     </insert>
 
     <!-- 查询所有课表记录 -->
-    <select id="getAllTimetables" resultMap="TimetableResultMap">
-        SELECT id, course_id, teacher_id, classroom_id, schedule_time, period_info, day_of_week FROM timetable
+    <select id="getAllTimetables" resultType="com.hangzhoudianzi.demo.pojo.resource.Timetable">
+        SELECT 
+            id, course_id, teacher_id, classroom_id, 
+            schedule_time, period_info, day_of_week,
+            class_id, class_name
+        FROM timetable
     </select>
+
+    <!-- 添加按班级查询的方法 -->
+    <select id="getTimetablesByClassId" resultType="com.hangzhoudianzi.demo.pojo.resource.Timetable">
+        SELECT 
+            id, course_id, teacher_id, classroom_id, 
+            schedule_time, period_info, day_of_week,
+            class_id
+        FROM timetable
+        WHERE class_id = #{classId}
+    </select>
+
+    <delete id="deleteByClassId">
+        DELETE FROM timetable WHERE class_id = #{classId}
+    </delete>
 
 </mapper>

@@ -12,6 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 //实现自动排课与手工排课示例，实际排课算法可根据需求扩展
@@ -34,12 +37,12 @@ public class ScheduleService {
 
 
     // 遗传算法参数
-    private static final int POPULATION_SIZE = 50;       // 种群大小
-    private static final int MAX_GENERATIONS = 100;      // 最大迭代次数
-    private static final double CROSSOVER_RATE = 0.8;    // 交叉率
-    private static final double MUTATION_RATE = 0.1;     // 变异率
-    private static final int TOURNAMENT_SIZE = 5;        // 锦标赛选择大小
-    private static final int ELITE_COUNT = 5;            // 精英保留数量
+    private static final int POPULATION_SIZE = 30;       // 从50减少到30
+    private static final int MAX_GENERATIONS = 50;      // 从100减少到50
+    private static final double CROSSOVER_RATE = 0.8;    
+    private static final double MUTATION_RATE = 0.2;     // 从0.1增加到0.2提高变异率加快收敛
+    private static final int TOURNAMENT_SIZE = 3;        // 从5减少到3
+    private static final int ELITE_COUNT = 2;            // 从5减少到2
 
     // 排课约束参数
     private static final int DAYS = 5;                   // 教学天数（一周）
@@ -52,10 +55,9 @@ public class ScheduleService {
      * 染色体类，表示一个完整的排课方案
      */
     class Chromosome {
-        // 基因序列，每个元素代表一个课程的安排，包含：[课程ID, 教师ID, 教室ID, 星期几, 第几节课]
-        // 注意: 前三个元素(courseId, teacherId, classroomId)是字符串类型
+        // 基因序列，每个元素代表一个课程的安排
+        // [课程ID, 教师ID, 教室ID, 星期几, 第几节课, 班级ID]
         List<Object[]> genes;
-        // 适应度分数
         double fitness;
         
         public Chromosome() {
@@ -88,26 +90,20 @@ public class ScheduleService {
      * 4. 重复步骤2-3直到满足终止条件
      * 5. 选取最佳排课方案并保存
      */
-    public void autoSchedule() {
-        System.out.println("======== 开始自动排课 ========");
+    public void autoSchedule(Integer classId) {
+        System.out.println("======== 开始为" + classId + "班级排课 ========");
         
         // 获取数据
         List<Course> courses = courseService.list();
         List<Teacher> teachers = teacherService.list();
         List<Classroom> classrooms = classroomService.list();
-        
+
         if (courses.isEmpty() || teachers.isEmpty() || classrooms.isEmpty()) {
             System.out.println("错误：缺少排课所需数据，无法进行自动排课");
             return;
         }
         
-        // 增加课程处理数量
-        int maxCourses = Math.min(MAX_WEEKLY_RECORDS, courses.size());
-        if (courses.size() > maxCourses) {
-            System.out.println("注意：限制课程数量为" + maxCourses + "（原课程总数：" + courses.size() + "）");
-            courses = courses.subList(0, maxCourses);
-        }
-        
+        // 不再限制课程数量，让所有课程都有机会被安排
         System.out.println("开始排课，处理 " + courses.size() + " 门课程，" + 
                          teachers.size() + " 名教师，" + 
                          classrooms.size() + " 间教室");
@@ -115,12 +111,11 @@ public class ScheduleService {
         // 简化参数，加快收敛速度
         int limitedGenerations = Math.min(20, MAX_GENERATIONS); // 最多迭代20代
         double targetFitness = 0.8; // 降低目标适应度阈值
-        int stagnantGenerations = 0;
-        int maxStagnantGenerations = 5; // 降低无改进容忍代数
-        double lastBestFitness = 0.0;
+        double previousBestFitness = 0.0;
+        int noImprovementCount = 0;
         
         // 初始化种群
-        List<Chromosome> population = initializePopulation(courses, teachers, classrooms);
+        List<Chromosome> population = initializePopulation(courses, teachers, classrooms, classId);
         
         // 评估初始种群适应度
         evaluatePopulation(population, courses, teachers, classrooms);
@@ -181,22 +176,22 @@ public class ScheduleService {
             
             System.out.println("第 " + (generation + 1) + "/" + limitedGenerations + " 代，最佳适应度: " + bestFitness);
             
-            // 检查是否达到目标适应度
-            if (bestFitness >= targetFitness) {
-                System.out.println("已达到目标适应度 " + targetFitness + "，提前结束进化");
-                break;
-            }
-            
-            // 检查是否适应度长期无改进
-            if (Math.abs(bestFitness - lastBestFitness) < 0.001) {
-                stagnantGenerations++;
-                if (stagnantGenerations >= maxStagnantGenerations) {
-                    System.out.println("适应度 " + maxStagnantGenerations + " 代无显著改进，提前结束进化");
+            // 检查适应度改善情况
+            if (Math.abs(bestFitness - previousBestFitness) < 0.001) {
+                noImprovementCount++;
+                if (noImprovementCount >= 3) {  // 连续3代无改善则提前终止
+                    System.out.println("连续3代无明显改善，提前终止进化");
                     break;
                 }
             } else {
-                stagnantGenerations = 0;
-                lastBestFitness = bestFitness;
+                noImprovementCount = 0;
+                previousBestFitness = bestFitness;
+            }
+            
+            // 如果达到可接受的适应度就提前终止
+            if (bestFitness >= 0.85) {
+                System.out.println("达到可接受的适应度阈值，提前终止进化");
+                break;
             }
         }
         
@@ -214,8 +209,8 @@ public class ScheduleService {
                 System.out.println("警告: 最终课表冲突较多，可能不够合理，建议手动调整");
             }
             
-            // 将最佳染色体转换为实际的排课表并保存到数据库
-            saveScheduleToDatabase(bestChromosome, courses, teachers, classrooms);
+            // 保存到数据库时传入classId
+            saveScheduleToDatabase(bestChromosome, courses, teachers, classrooms, classId);
         } else {
             System.out.println("未能找到有效的排课方案");
         }
@@ -229,13 +224,15 @@ public class ScheduleService {
      * @param courses 所有课程
      * @param teachers 所有教师
      * @param classrooms 所有教室
+     * @param classId 班级ID
      * @return 初始化的种群
      */
-    private List<Chromosome> initializePopulation(List<Course> courses, List<Teacher> teachers, List<Classroom> classrooms) {
+    private List<Chromosome> initializePopulation(List<Course> courses, List<Teacher> teachers, 
+                                                List<Classroom> classrooms, int classId) {
         List<Chromosome> population = new ArrayList<>();
         
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            Chromosome chromosome = generateRandomChromosome(courses, teachers, classrooms);
+            Chromosome chromosome = generateRandomChromosome(courses, teachers, classrooms, classId);
             population.add(chromosome);
         }
         
@@ -245,69 +242,50 @@ public class ScheduleService {
     /**
      * 生成随机染色体（一个完整的排课方案）
      */
-    private Chromosome generateRandomChromosome(List<Course> courses, List<Teacher> teachers, List<Classroom> classrooms) {
+    private Chromosome generateRandomChromosome(List<Course> courses, List<Teacher> teachers, 
+                                          List<Classroom> classrooms, int classId) {
         Random random = new Random();
         Chromosome chromosome = new Chromosome();
         
-        // 按排课优先级对课程进行排序
-        List<Course> sortedCourses = new ArrayList<>(courses);
-        sortedCourses.sort((c1, c2) -> {
-            // 优先级字符串可能为空或不是数字，需要安全处理
-            int p1 = parseIntSafely(c1.getPriority(), 0);
-            int p2 = parseIntSafely(c2.getPriority(), 0);
-            // 注意：数字越小优先级越高
-            return p1 - p2;
-        });
-        
-        // 按课程名称分组
-        Map<String, List<Course>> coursesByName = new HashMap<>();
-        for (Course course : sortedCourses) {
-            String courseName = course.getCourseName();
-            if (!coursesByName.containsKey(courseName)) {
-                coursesByName.put(courseName, new ArrayList<>());
+        // 创建可用时间槽
+        List<int[]> availableTimeSlots = new ArrayList<>();
+        for (int day = 1; day <= DAYS; day++) {
+            for (int period = 1; period <= PERIODS_PER_DAY; period++) {
+                availableTimeSlots.add(new int[]{day, period});
             }
-            coursesByName.get(courseName).add(course);
         }
+        Collections.shuffle(availableTimeSlots);  // 随机打乱时间槽
         
-        // 教师分配计数
-        Map<String, Integer> teacherCourseCount = new HashMap<>();
-        // 教师名称分配
-        Map<String, Set<String>> teacherCourseNames = new HashMap<>();
+        // 使用Set来跟踪已经安排的courseId
+        Set<String> assignedCourseIds = new HashSet<>();
         
-        // 为每个课程分配资源
-        for (Course course : sortedCourses) {
-            String courseId = course.getId();
-            String courseName = course.getCourseName();
+        // 为每个课程分配时间槽
+        int timeSlotIndex = 0;
+        for (Course course : courses) {
+            // 如果这个courseId已经被安排过，跳过
+            if (assignedCourseIds.contains(course.getId())) {
+                continue;
+            }
+            
+            if (timeSlotIndex >= availableTimeSlots.size()) break;
+            
+            int[] timeSlot = availableTimeSlots.get(timeSlotIndex++);
             
             // 找到最合适的教师
-            String teacherId = findBestTeacher(course, teachers, teacherCourseCount, teacherCourseNames);
-            
-            // 如果没有找到合适的教师，使用课程原有教师或随机分配
-            if (teacherId == null) {
-                if (course.getTeacherId() != null && !course.getTeacherId().isEmpty()) {
-                    teacherId = course.getTeacherId();
-                } else if (!teachers.isEmpty()) {
-                    teacherId = teachers.get(random.nextInt(teachers.size())).getId();
-                }
+            String teacherId = findBestTeacher(course, teachers, classId);
+            if (teacherId == null && !teachers.isEmpty()) {
+                teacherId = teachers.get(random.nextInt(teachers.size())).getId();
             }
             
-            // 更新教师分配计数
-            teacherCourseCount.put(teacherId, teacherCourseCount.getOrDefault(teacherId, 0) + 1);
+            String classroomId = classrooms.get(random.nextInt(classrooms.size())).getId();
             
-            // 更新教师课程名称集合
-            if (!teacherCourseNames.containsKey(teacherId)) {
-                teacherCourseNames.put(teacherId, new HashSet<>());
-            }
-            teacherCourseNames.get(teacherId).add(courseName);
+            // 添加基因并记录已使用的courseId
+            chromosome.genes.add(new Object[]{
+                course.getId(), teacherId, classroomId, 
+                timeSlot[0], timeSlot[1], classId
+            });
             
-            // 随机选择教室、星期和节次
-            Classroom classroom = classrooms.get(random.nextInt(classrooms.size()));
-            String classroomId = classroom.getId();
-            int day = random.nextInt(DAYS) + 1;
-            int period = random.nextInt(PERIODS_PER_DAY) + 1;
-            
-            // 添加基因 [课程ID, 教师ID, 教室ID, 星期几, 第几节课]
-            chromosome.genes.add(new Object[]{courseId, teacherId, classroomId, day, period});
+            assignedCourseIds.add(course.getId());
         }
         
         return chromosome;
@@ -330,9 +308,7 @@ public class ScheduleService {
     /**
      * 为课程找到最合适的教师
      */
-    private String findBestTeacher(Course course, List<Teacher> teachers, 
-                                  Map<String, Integer> teacherCourseCount,
-                                  Map<String, Set<String>> teacherCourseNames) {
+    private String findBestTeacher(Course course, List<Teacher> teachers, int classId) {
         if (teachers.isEmpty()) {
             return null;
         }
@@ -342,6 +318,23 @@ public class ScheduleService {
         
         // 候选教师评分
         Map<String, Integer> teacherScores = new HashMap<>();
+        
+        // 创建一个临时的染色体来检查当前排课情况
+        Chromosome tempChromosome = new Chromosome();
+        List<Timetable> existingTimetables = timetableMapper.getTimetablesByClassId(classId);
+        
+        // 将现有课表转换为染色体格式
+        for (Timetable timetable : existingTimetables) {
+            Object[] gene = new Object[]{
+                timetable.getCourseId(),
+                timetable.getTeacherId(),
+                timetable.getClassroomId(),
+                timetable.getDayOfWeek(),
+                Integer.parseInt(timetable.getPeriodInfo().split(",")[0]),
+                timetable.getClassId()
+            };
+            tempChromosome.genes.add(gene);
+        }
         
         for (Teacher teacher : teachers) {
             String teacherId = teacher.getId();
@@ -353,14 +346,29 @@ public class ScheduleService {
             }
             
             // 检查教师课程数量，数量越多分数越低
-            int courseCount = teacherCourseCount.getOrDefault(teacherId, 0);
+            int courseCount = 0;
+            for (Object[] gene : tempChromosome.genes) {
+                if (gene[1].equals(teacherId)) {
+                    courseCount++;
+                }
+            }
             score -= courseCount * 10;
             
             // 检查教师是否已分配相同名称的课程，如果是则加分（同一老师教同名课程好）
-            Set<String> assignedCourseNames = teacherCourseNames.getOrDefault(teacherId, new HashSet<>());
-            if (assignedCourseNames.contains(courseName)) {
+            Set<String> assignedCourseNames = new HashSet<>();
+            for (Object[] gene : tempChromosome.genes) {
+                if (gene[1].equals(teacherId)) {
+                    String assignedCourseId = (String) gene[0];
+                    Course assignedCourse = courseService.getCourseById(assignedCourseId);
+                    if (assignedCourse != null && assignedCourse.getCourseName().equals(courseName)) {
+                        assignedCourseNames.add(courseName);
+                    }
+                }
+            }
+            
+            if (!assignedCourseNames.isEmpty()) {
                 score += 30;
-            } else if (!assignedCourseNames.isEmpty()) {
+            } else if (assignedCourseNames.size() > 0) {
                 // 如果教师已有其他课程，略微减分，鼓励教师专注于少数几种课程
                 score -= assignedCourseNames.size() * 5;
             }
@@ -388,155 +396,49 @@ public class ScheduleService {
      * 计算染色体的适应度
      * 适应度越高表示排课方案越好（冲突越少）
      */
-    private double calculateFitness(Chromosome chromosome, List<Course> courses, List<Teacher> teachers, List<Classroom> classrooms) {
+    private double calculateFitness(Chromosome chromosome, List<Course> courses, 
+                              List<Teacher> teachers, List<Classroom> classrooms) {
+        // 使用更高效的数据结构
+        Set<String> timeSlots = new HashSet<>();  // 用于快速检查时间冲突
+        Map<String, Integer> teacherLoad = new HashMap<>();  // 教师课程负载
+        Set<String> courseIds = new HashSet<>();  // 用于检查课程ID重复
+        
         int conflictCount = 0;
         
-        // 用于检测冲突的映射
-        Map<String, List<Object[]>> teacherTimeMap = new HashMap<>();  // 教师-时间冲突
-        Map<String, List<Object[]>> classroomTimeMap = new HashMap<>(); // 教室-时间冲突
-        Map<String, Integer> teacherCourseCount = new HashMap<>();     // 教师课程数量
-        Map<String, Map<Integer, Integer>> teacherDayCount = new HashMap<>(); // 教师每天课程数量
-        Map<String, Set<String>> teacherAdjPeriodsMap = new HashMap<>(); // 教师相邻时间段记录
-        Map<String, Set<String>> teacherCourseNames = new HashMap<>(); // 教师教授的课程名称
-        
-        // 创建课程ID到课程对象的映射
-        Map<String, Course> courseMap = new HashMap<>();
-        for (Course course : courses) {
-            courseMap.put(course.getId(), course);
-        }
-        
-        // 检查每个基因（课程安排）
         for (Object[] gene : chromosome.genes) {
             String courseId = (String) gene[0];
             String teacherId = (String) gene[1];
-            String classroomId = (String) gene[2];
             int day = (int) gene[3];
             int period = (int) gene[4];
+            int classId = (Integer) gene[5];
             
-            // 获取课程信息
-            Course course = courseMap.get(courseId);
-            String courseName = course != null ? course.getCourseName() : "";
-            
-            // 记录教师课程名称
-            if (!teacherCourseNames.containsKey(teacherId)) {
-                teacherCourseNames.put(teacherId, new HashSet<>());
+            // 检查courseId是否重复
+            String courseKey = courseId + "_" + classId;  // 组合courseId和classId
+            if (!courseIds.add(courseKey)) {
+                conflictCount += 10;  // 严重惩罚重复的courseId
+                continue;
             }
-            teacherCourseNames.get(teacherId).add(courseName);
             
-            // 更新教师课程数统计
-            teacherCourseCount.put(teacherId, teacherCourseCount.getOrDefault(teacherId, 0) + 1);
-            
-            // 更新教师每天课程数统计
-            if (!teacherDayCount.containsKey(teacherId)) {
-                teacherDayCount.put(teacherId, new HashMap<>());
+            // 使用复合键检查时间冲突
+            String timeSlotKey = String.format("%s_%d_%d_%d", teacherId, day, period, classId);
+            if (!timeSlots.add(timeSlotKey)) {
+                conflictCount += 5;
+                continue;
             }
-            teacherDayCount.get(teacherId).put(day, teacherDayCount.get(teacherId).getOrDefault(day, 0) + 1);
             
-            // 检查教师时间冲突
-            String teacherTimeKey = teacherId + "-" + day + "-" + period;
-            if (!teacherTimeMap.containsKey(teacherTimeKey)) {
-                teacherTimeMap.put(teacherTimeKey, new ArrayList<>());
-            }
-            teacherTimeMap.get(teacherTimeKey).add(gene);
-            
-            // 检查教室时间冲突
-            String classroomTimeKey = classroomId + "-" + day + "-" + period;
-            if (!classroomTimeMap.containsKey(classroomTimeKey)) {
-                classroomTimeMap.put(classroomTimeKey, new ArrayList<>());
-            }
-            classroomTimeMap.get(classroomTimeKey).add(gene);
-            
-            // 记录教师相邻时间段
-            String dayPeriodKey = day + "-" + period;
-            if (!teacherAdjPeriodsMap.containsKey(teacherId)) {
-                teacherAdjPeriodsMap.put(teacherId, new HashSet<>());
-            }
-            teacherAdjPeriodsMap.get(teacherId).add(dayPeriodKey);
+            // 更新教师课程负载
+            teacherLoad.merge(teacherId, 1, Integer::sum);
         }
         
-        // 统计冲突数
-        for (List<Object[]> classes : teacherTimeMap.values()) {
-            if (classes.size() > 1) {
-                conflictCount += classes.size() - 1;
+        // 检查教师负载是否平衡
+        int avgLoad = chromosome.genes.size() / teacherLoad.size();
+        for (int load : teacherLoad.values()) {
+            if (Math.abs(load - avgLoad) > 2) {
+                conflictCount++;
             }
         }
         
-        for (List<Object[]> classes : classroomTimeMap.values()) {
-            if (classes.size() > 1) {
-                conflictCount += classes.size() - 1;
-            }
-        }
-        
-        // 检查教师课程分配不平衡问题
-        if (teachers.size() > 1) {
-            int maxCoursesPerTeacher = MAX_WEEKLY_RECORDS / teachers.size();
-            maxCoursesPerTeacher = Math.max(maxCoursesPerTeacher, 5); // 每位教师至少可以上5节课
-            
-            for (Map.Entry<String, Integer> entry : teacherCourseCount.entrySet()) {
-                // 课程分配过多的教师增加冲突分数
-                if (entry.getValue() > maxCoursesPerTeacher) {
-                    conflictCount += (entry.getValue() - maxCoursesPerTeacher) * 2;
-                }
-                
-                // 检查教师每天课程集中问题
-                if (teacherDayCount.containsKey(entry.getKey())) {
-                    Map<Integer, Integer> dayCount = teacherDayCount.get(entry.getKey());
-                    for (Integer count : dayCount.values()) {
-                        if (count > 3) { // 一天最多安排3节课
-                            conflictCount += (count - 3) * 2;
-                        }
-                    }
-                }
-                
-                // 检查教师课程多样性问题（同一教师授课种类过多）
-                if (teacherCourseNames.containsKey(entry.getKey())) {
-                    Set<String> courseNames = teacherCourseNames.get(entry.getKey());
-                    if (courseNames.size() > 3) { // 一个教师最好不要教授超过3种不同的课程
-                        conflictCount += (courseNames.size() - 3);
-                    }
-                }
-            }
-        }
-        
-        // 检查教师连续上课问题
-        for (Map.Entry<String, Set<String>> entry : teacherAdjPeriodsMap.entrySet()) {
-            String teacherId = entry.getKey();
-            Set<String> periods = entry.getValue();
-            
-            // 检查是否有相邻时间段
-            for (String period1 : periods) {
-                String[] parts1 = period1.split("-");
-                int day1 = Integer.parseInt(parts1[0]);
-                int period1Val = Integer.parseInt(parts1[1]);
-                
-                for (String period2 : periods) {
-                    if (period1.equals(period2)) continue;
-                    
-                    String[] parts2 = period2.split("-");
-                    int day2 = Integer.parseInt(parts2[0]);
-                    int period2Val = Integer.parseInt(parts2[1]);
-                    
-                    // 在同一天的相邻时间段
-                    if (day1 == day2 && Math.abs(period1Val - period2Val) == 1) {
-                        // 连续上课不一定是冲突，但如果超过2个连续时间段，则增加冲突分数
-                        int consecutiveCount = 0;
-                        for (int i = Math.min(period1Val, period2Val); i <= Math.max(period1Val, period2Val) + 1; i++) {
-                            if (periods.contains(day1 + "-" + i)) {
-                                consecutiveCount++;
-                            }
-                        }
-                        
-                        if (consecutiveCount > 2) {
-                            conflictCount += consecutiveCount - 2;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // 计算适应度，与冲突数成反比
-        double fitness = 1.0 / (1.0 + conflictCount);
-        return fitness;
+        return 1.0 / (1.0 + conflictCount);
     }
     
     /**
@@ -600,6 +502,12 @@ public class ScheduleService {
     private void mutate(Chromosome chromosome, List<Course> courses, List<Teacher> teachers, List<Classroom> classrooms) {
         Random random = new Random();
         
+        // 创建课程ID到课程对象的映射
+        Map<String, Course> courseMap = new HashMap<>();
+        for (Course course : courses) {
+            courseMap.put(course.getId(), course);
+        }
+        
         // 统计教师课程数量
         Map<String, Integer> teacherCourseCount = new HashMap<>();
         for (Object[] gene : chromosome.genes) {
@@ -630,70 +538,46 @@ public class ScheduleService {
             currentMutationRate = MUTATION_RATE * 1.5;
         }
         
+        // 在变异时检查课程名称
+        Map<Integer, Map<String, Integer>> classCourseCounts = new HashMap<>();
+        
+        // 统计当前课程分布
+        for (Object[] gene : chromosome.genes) {
+            String courseId = (String) gene[0];
+            int classId = (Integer) gene[5];
+            
+            Course course = courseMap.get(courseId);
+            if (course == null) continue;
+            
+            String courseName = course.getCourseName();
+            
+            classCourseCounts.computeIfAbsent(classId, k -> new HashMap<>())
+                            .merge(courseName, 1, Integer::sum);
+        }
+        
+        // 在变异时避免生成过多相同课程
         for (int i = 0; i < chromosome.genes.size(); i++) {
             if (random.nextDouble() < currentMutationRate) {
                 Object[] gene = chromosome.genes.get(i);
-                String currentTeacherId = (String) gene[1];
+                String courseId = (String) gene[0];
+                int classId = (Integer) gene[5];
                 
-                // 变异类型选择
-                int mutationType;
+                Course course = courseMap.get(courseId);
+                if (course == null) continue;
                 
-                // 如果当前教师是课程数最多的教师，增加变异教师的概率
-                if (currentTeacherId.equals(maxTeacherId) && teachers.size() > 1) {
-                    mutationType = random.nextInt(5); // 0-4中有3种情况会变异教师
-                } else {
-                    mutationType = random.nextInt(5); // 随机决定变异什么属性（教室、星期、节次、教师）
-                }
+                String courseName = course.getCourseName();
                 
-                switch (mutationType) {
-                    case 0: // 变异教室
-                        if (!classrooms.isEmpty()) {
-                            int randomIndex = random.nextInt(classrooms.size());
-                            gene[2] = classrooms.get(randomIndex).getId();
+                // 如果当前课程在该班级出现次数过多，尝试替换为其他课程
+                if (classCourseCounts.get(classId).getOrDefault(courseName, 0) > 2) {
+                    // 寻找出现次数较少的其他课程进行替换
+                    for (Course otherCourse : courses) {
+                        String otherCourseName = otherCourse.getCourseName();
+                        if (!otherCourseName.equals(courseName) &&
+                            classCourseCounts.get(classId).getOrDefault(otherCourseName, 0) < 2) {
+                            gene[0] = otherCourse.getId();
+                            break;
                         }
-                        break;
-                    case 1: // 变异星期
-                        gene[3] = random.nextInt(DAYS) + 1;
-                        break;
-                    case 2: // 变异节次
-                        gene[4] = random.nextInt(PERIODS_PER_DAY) + 1;
-                        break;
-                    case 3: // 变异教师 - 随机选择
-                    case 4: // 变异教师 - 优先选择课程少的教师
-                        if (teachers.size() > 1) {
-                            Teacher newTeacher = null;
-                            
-                            if (mutationType == 4 && minTeacherId != null && !currentTeacherId.equals(minTeacherId)) {
-                                // 找到课程数最少的教师
-                                for (Teacher teacher : teachers) {
-                                    if (teacher.getId().equals(minTeacherId)) {
-                                        newTeacher = teacher;
-                                        break;
-                                    }
-                                }
-                            } else {
-                                // 随机选择一个不同的教师
-                                List<Teacher> availableTeachers = new ArrayList<>();
-                                for (Teacher teacher : teachers) {
-                                    if (!teacher.getId().equals(currentTeacherId)) {
-                                        availableTeachers.add(teacher);
-                                    }
-                                }
-                                
-                                if (!availableTeachers.isEmpty()) {
-                                    newTeacher = availableTeachers.get(random.nextInt(availableTeachers.size()));
-                                }
-                            }
-                            
-                            if (newTeacher != null) {
-                                gene[1] = newTeacher.getId();
-                                
-                                // 更新教师课程计数
-                                teacherCourseCount.put(currentTeacherId, teacherCourseCount.get(currentTeacherId) - 1);
-                                teacherCourseCount.put(newTeacher.getId(), teacherCourseCount.getOrDefault(newTeacher.getId(), 0) + 1);
-                            }
-                        }
-                        break;
+                    }
                 }
             }
         }
@@ -702,351 +586,104 @@ public class ScheduleService {
     /**
      * 将最佳染色体保存到数据库
      */
-    private void saveScheduleToDatabase(Chromosome chromosome, List<Course> courses, List<Teacher> teachers, List<Classroom> classrooms) {
-        System.out.println("开始保存排课结果到数据库...");
+    private void saveScheduleToDatabase(Chromosome chromosome, List<Course> courses, 
+                                  List<Teacher> teachers, List<Classroom> classrooms, 
+                                  Integer classId) {
+        System.out.println("开始保存排课结果到数据库，班级ID: " + classId);
         
-        // 限制处理的记录数，增大到30条
-        int maxRecords = Math.min(MAX_WEEKLY_RECORDS, chromosome.genes.size());
-        if (chromosome.genes.size() > maxRecords) {
-            System.out.println("注意：限制插入记录数为 " + maxRecords + "（原记录总数：" + chromosome.genes.size() + "）");
-        }
-        
-        int successCount = 0;
-        int failCount = 0;
-        
-        // 教师课程分布统计，用于避免同一教师在短时间内频繁授课
-        Map<String, Set<String>> teacherDayPeriodMap = new HashMap<>();  // 记录每个教师已排的day-period组合
-        Map<String, Integer> teacherCourseCount = new HashMap<>();       // 记录每个教师排课数量
-        Map<String, Map<String, Integer>> teacherCourseNameCount = new HashMap<>();  // 记录每个教师每种课程的数量
-        
-        // 创建课程ID到课程对象的映射
-        Map<String, Course> courseMap = new HashMap<>();
-        for (Course course : courses) {
-            courseMap.put(course.getId(), course);
-        }
-        
-        // 按排课优先级对基因排序
-        List<Object[]> sortedGenes = new ArrayList<>(chromosome.genes);
-        sortedGenes.sort((gene1, gene2) -> {
-            String courseId1 = (String) gene1[0];
-            String courseId2 = (String) gene2[0];
-            Course course1 = courseMap.get(courseId1);
-            Course course2 = courseMap.get(courseId2);
+        try {
+            // 先删除该班级的旧数据
+            timetableMapper.deleteByClassId(classId);
             
-            if (course1 == null || course2 == null) {
-                return 0;
-            }
+            // 用于检查courseId重复
+            Set<String> usedCourseIds = new HashSet<>();
             
-            // 按优先级排序（数字越小优先级越高）
-            int p1 = parseIntSafely(course1.getPriority(), 0);
-            int p2 = parseIntSafely(course2.getPriority(), 0);
-            return p1 - p2;
-        });
-        
-        // 确保教师的课程分配均衡，预处理基因数组
-        ensureTeacherBalance(sortedGenes, teachers, courseMap);
-        
-        // 保存新的排课方案
-        for (int i = 0; i < maxRecords && i < sortedGenes.size(); i++) {
-            Object[] gene = sortedGenes.get(i);
-            try {
-                // 基础数据
-                String courseId = (String) gene[0];
-                String teacherId = (String) gene[1];
-                String classroomId = (String) gene[2];
-                int day = (int) gene[3];
-                int period = (int) gene[4];
-                
-                Course course = courseMap.get(courseId);
-                if (course == null) {
-                    System.out.println("警告：找不到ID为 " + courseId + " 的课程，跳过此记录");
-                    continue;
-                }
-                
-                String courseName = course.getCourseName();
-                
-                // 教师课程分配平衡检查
-                String dayPeriodKey = day + "-" + period;
-                
-                // 确保教师数据结构初始化
-                if (!teacherDayPeriodMap.containsKey(teacherId)) {
-                    teacherDayPeriodMap.put(teacherId, new HashSet<>());
-                }
-                if (!teacherCourseCount.containsKey(teacherId)) {
-                    teacherCourseCount.put(teacherId, 0);
-                }
-                if (!teacherCourseNameCount.containsKey(teacherId)) {
-                    teacherCourseNameCount.put(teacherId, new HashMap<>());
-                }
-                
-                // 获取此教师已分配的此类课程数量
-                int currentCourseTypeCount = teacherCourseNameCount.get(teacherId)
-                        .getOrDefault(courseName, 0);
-                
-                // 检查相同名称课程分配给同一教师的最大数量（通常不超过2-3节）
-                int maxSameCoursePerTeacher = 3;
-                if (currentCourseTypeCount >= maxSameCoursePerTeacher) {
-                    System.out.println("警告：教师 " + teacherId + " 的 '" + courseName + "' 课程数量已达上限 " + maxSameCoursePerTeacher);
+            // 限制处理的记录数
+            int maxRecords = Math.min(MAX_WEEKLY_RECORDS, chromosome.genes.size());
+            System.out.println("准备插入 " + maxRecords + " 条记录");
+            
+            int successCount = 0;
+            int failCount = 0;
+            
+            for (int i = 0; i < maxRecords && i < chromosome.genes.size(); i++) {
+                Object[] gene = chromosome.genes.get(i);
+                try {
+                    String courseId = (String) gene[0];
                     
-                    // 尝试分配给其他教师
-                    boolean reassigned = false;
+                    // 检查courseId是否已经使用过
+                    if (usedCourseIds.contains(courseId)) {
+                        System.out.println("警告：课程ID " + courseId + " 重复，跳过此记录");
+                        continue;
+                    }
                     
-                    // 首先尝试找之前教过这门课的教师
-                    for (Teacher otherTeacher : teachers) {
-                        String otherTeacherId = otherTeacher.getId();
-                        if (!otherTeacherId.equals(teacherId) && 
-                            teacherCourseNameCount.containsKey(otherTeacherId) &&
-                            teacherCourseNameCount.get(otherTeacherId).containsKey(courseName) &&
-                            teacherCourseNameCount.get(otherTeacherId).get(courseName) < maxSameCoursePerTeacher) {
-                            
-                            System.out.println("尝试将课程重新分配给之前教过此课的教师 " + otherTeacherId);
-                            gene[1] = otherTeacherId;
-                            teacherId = otherTeacherId;
-                            
-                            // 确保新教师数据结构初始化
-                            if (!teacherDayPeriodMap.containsKey(teacherId)) {
-                                teacherDayPeriodMap.put(teacherId, new HashSet<>());
-                            }
-                            if (!teacherCourseCount.containsKey(teacherId)) {
-                                teacherCourseCount.put(teacherId, 0);
-                            }
-                            if (!teacherCourseNameCount.containsKey(teacherId)) {
-                                teacherCourseNameCount.put(teacherId, new HashMap<>());
-                            }
-                            
-                            reassigned = true;
-                            break;
+                    String teacherId = (String) gene[1];
+                    String classroomId = (String) gene[2];
+                    int day = (int) gene[3];
+                    int period = (int) gene[4];
+                    
+                    Course course = courseService.getCourseById(courseId);
+                    if (course == null) {
+                        System.out.println("警告：找不到ID为 " + courseId + " 的课程，跳过此记录");
+                        continue;
+                    }
+                    
+                    // 创建排课记录
+                    Timetable timetable = new Timetable();
+                    timetable.setCourseId(courseId);
+                    timetable.setTeacherId(teacherId);
+                    timetable.setClassroomId(classroomId);
+                    timetable.setScheduleTime(calculateScheduleTime(day, period));
+                    timetable.setDayOfWeek(day);
+                    timetable.setClassId(classId);
+                    
+                    // 设置节次信息
+                    StringBuilder periodInfoBuilder = new StringBuilder();
+                    int consecutiveSections = course.getConsecutiveSections();
+                    if (consecutiveSections <= 0) {
+                        consecutiveSections = 1;
+                    }
+                    consecutiveSections = Math.min(consecutiveSections, 3);
+                    
+                    for (int p = period; p < period + consecutiveSections && p <= PERIODS_PER_DAY; p++) {
+                        if (periodInfoBuilder.length() > 0) {
+                            periodInfoBuilder.append(",");
                         }
+                        periodInfoBuilder.append(p);
+                    }
+                    timetable.setPeriodInfo(periodInfoBuilder.toString());
+                    
+                    System.out.println("尝试插入第 " + (i+1) + "/" + maxRecords + " 条记录: " + 
+                                     "课程=" + courseId + 
+                                     ", 教师=" + teacherId + 
+                                     ", 教室=" + classroomId + 
+                                     ", 节次=" + period + 
+                                     ", 星期=" + day +
+                                     ", 班级=" + classId);
+                    
+                    // 执行插入操作
+                    int result = timetableMapper.insertTimetable(timetable);
+                    if (result > 0) {
+                        successCount++;
+                        System.out.println("第 " + (i+1) + " 条记录插入成功");
+                    } else {
+                        failCount++;
+                        System.out.println("第 " + (i+1) + " 条记录插入失败");
                     }
                     
-                    // 如果没有找到之前教过这门课的教师，尝试找课程总量少的教师
-                    if (!reassigned) {
-                        for (Teacher otherTeacher : teachers) {
-                            String otherTeacherId = otherTeacher.getId();
-                            if (!otherTeacherId.equals(teacherId) && 
-                                (!teacherCourseCount.containsKey(otherTeacherId) || 
-                                 teacherCourseCount.get(otherTeacherId) < teacherCourseCount.get(teacherId))) {
-                                
-                                System.out.println("尝试将课程重新分配给课程总量较少的教师 " + otherTeacherId);
-                                gene[1] = otherTeacherId;
-                                teacherId = otherTeacherId;
-                                
-                                // 确保新教师数据结构初始化
-                                if (!teacherDayPeriodMap.containsKey(teacherId)) {
-                                    teacherDayPeriodMap.put(teacherId, new HashSet<>());
-                                }
-                                if (!teacherCourseCount.containsKey(teacherId)) {
-                                    teacherCourseCount.put(teacherId, 0);
-                                }
-                                if (!teacherCourseNameCount.containsKey(teacherId)) {
-                                    teacherCourseNameCount.put(teacherId, new HashMap<>());
-                                }
-                                
-                                reassigned = true;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if (!reassigned) {
-                        System.out.println("无法为课程 '" + courseName + "' 找到合适的教师，跳过此课程");
-                        continue; // 跳过此课程
-                    }
-                }
-                
-                // 检查教师是否已经在相邻时间段授课
-                boolean hasAdjacentPeriod = false;
-                for (String existingDayPeriod : teacherDayPeriodMap.get(teacherId)) {
-                    String[] parts = existingDayPeriod.split("-");
-                    int existingDay = Integer.parseInt(parts[0]);
-                    int existingPeriod = Integer.parseInt(parts[1]);
-                    
-                    if (existingDay == day && Math.abs(existingPeriod - period) == 1) {
-                        hasAdjacentPeriod = true;
-                        break;
-                    }
-                }
-                
-                // 如果有相邻课程且已经有2个连续的课，尝试调整时间
-                if (hasAdjacentPeriod) {
-                    int consecutiveCount = 0;
-                    for (int p = period - 2; p <= period + 2; p++) {
-                        if (p >= 1 && p <= PERIODS_PER_DAY && 
-                            teacherDayPeriodMap.get(teacherId).contains(day + "-" + p)) {
-                            consecutiveCount++;
-                        }
-                    }
-                    
-                    if (consecutiveCount >= 2) {
-                        // 尝试调整时间
-                        boolean timeAdjusted = false;
-                        
-                        // 尝试不同的星期
-                        for (int newDay = 1; newDay <= DAYS; newDay++) {
-                            if (newDay == day) continue;
-                            
-                            // 检查该星期是否已有过多课程
-                            int dayCount = 0;
-                            for (String key : teacherDayPeriodMap.get(teacherId)) {
-                                if (key.startsWith(newDay + "-")) {
-                                    dayCount++;
-                                }
-                            }
-                            
-                            if (dayCount < 3) { // 每天不超过3节课
-                                boolean periodConflict = false;
-                                for (int p = 1; p <= PERIODS_PER_DAY; p++) {
-                                    if (!teacherDayPeriodMap.get(teacherId).contains(newDay + "-" + p)) {
-                                        // 尝试设置到这个时间段
-                                        gene[3] = newDay;
-                                        gene[4] = p;
-                                        day = newDay;
-                                        period = p;
-                                        timeAdjusted = true;
-                                        break;
-                                    }
-                                }
-                                
-                                if (timeAdjusted) break;
-                            }
-                        }
-                        
-                        if (!timeAdjusted) {
-                            System.out.println("无法为教师 " + teacherId + " 的课程 '" + courseName + "' 调整时间，保持原时间");
-                        } else {
-                            System.out.println("已将教师 " + teacherId + " 的课程 '" + courseName + "' 时间调整为 星期" + day + " 第" + period + "节");
-                        }
-                    }
-                }
-                
-                // 检查教师课程是否过多
-                int currentTeacherCourses = teacherCourseCount.get(teacherId);
-                int maxCoursesPerTeacher = MAX_WEEKLY_RECORDS / (teachers.size() > 0 ? teachers.size() : 1);
-                maxCoursesPerTeacher = Math.max(maxCoursesPerTeacher, 5); // 每位教师至少可以上5节课
-                
-                if (currentTeacherCourses >= maxCoursesPerTeacher) {
-                    System.out.println("警告：教师 " + teacherId + " 课程数量已达上限 " + maxCoursesPerTeacher);
-                    // 尝试分配给其他教师
-                    boolean reassigned = false;
-                    for (Teacher otherTeacher : teachers) {
-                        String otherTeacherId = otherTeacher.getId();
-                        if (!otherTeacherId.equals(teacherId) && 
-                            (!teacherCourseCount.containsKey(otherTeacherId) || 
-                             teacherCourseCount.get(otherTeacherId) < maxCoursesPerTeacher)) {
-                            
-                            System.out.println("尝试将课程重新分配给教师 " + otherTeacherId);
-                            gene[1] = otherTeacherId;
-                            teacherId = otherTeacherId;
-                            
-                            // 确保新教师数据结构初始化
-                            if (!teacherDayPeriodMap.containsKey(teacherId)) {
-                                teacherDayPeriodMap.put(teacherId, new HashSet<>());
-                            }
-                            if (!teacherCourseCount.containsKey(teacherId)) {
-                                teacherCourseCount.put(teacherId, 0);
-                            }
-                            if (!teacherCourseNameCount.containsKey(teacherId)) {
-                                teacherCourseNameCount.put(teacherId, new HashMap<>());
-                            }
-                            
-                            reassigned = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!reassigned) {
-                        System.out.println("无法重新分配课程，所有教师都达到了上限");
-                        continue; // 跳过此课程
-                    }
-                }
-                
-                // 更新教师课程记录
-                teacherDayPeriodMap.get(teacherId).add(dayPeriodKey);
-                teacherCourseCount.put(teacherId, teacherCourseCount.get(teacherId) + 1);
-                
-                // 更新教师课程名称计数
-                teacherCourseNameCount.get(teacherId).put(
-                    courseName, 
-                    teacherCourseNameCount.get(teacherId).getOrDefault(courseName, 0) + 1
-                );
-                
-                // 创建排课记录
-                Timetable timetable = new Timetable();
-                
-                // 直接使用原始ID，保持字符串格式
-                timetable.setCourseId(courseId);
-                timetable.setTeacherId(teacherId);
-                timetable.setClassroomId(classroomId);
-                
-                // 设置时间
-                timetable.setScheduleTime(calculateScheduleTime(day, period));
-                
-                // 设置节次信息
-                StringBuilder periodInfoBuilder = new StringBuilder();
-                // 考虑Course的consecutiveSections属性，支持连续多节课
-                int consecutiveSections = course.getConsecutiveSections();
-                if (consecutiveSections <= 0) {
-                    consecutiveSections = 1; // 默认为1节课
-                }
-                // 限制最大连续节数为3
-                consecutiveSections = Math.min(consecutiveSections, 3);
-                
-                // 构建格式为"1,2,3"的periodInfo字符串
-                for (int p = period; p < period + consecutiveSections && p <= PERIODS_PER_DAY; p++) {
-                    if (periodInfoBuilder.length() > 0) {
-                        periodInfoBuilder.append(",");
-                    }
-                    periodInfoBuilder.append(p);
-                }
-                
-                timetable.setPeriodInfo(periodInfoBuilder.toString());
-                
-                // 设置星期几
-                timetable.setDayOfWeek(day);
-                
-                System.out.println("尝试插入第 " + (i+1) + "/" + maxRecords + " 条记录: " + 
-                                 "课程=" + courseId + " (" + courseName + ")" +
-                                 ", 教师=" + teacherId + 
-                                 ", 教室=" + classroomId + 
-                                 ", 节次=" + period + 
-                                 ", 星期=" + day);
-                
-                // 执行插入操作
-                int result = timetableMapper.insertTimetable(timetable);
-                if (result > 0) {
-                    successCount++;
-                    System.out.println("第 " + (i+1) + " 条记录插入成功");
-                } else {
+                    // 记录已使用的courseId
+                    usedCourseIds.add(courseId);
+                } catch (Exception e) {
                     failCount++;
-                    System.out.println("第 " + (i+1) + " 条记录插入失败");
+                    System.out.println("插入记录失败: " + e.getMessage());
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                failCount++;
-                System.out.println("错误信息: " + e.getMessage());
-                e.printStackTrace(); // 打印详细的异常堆栈，便于排查
             }
-        }
-        
-        // 打印教师课程分配统计
-        System.out.println("\n教师课程分配统计：");
-        for (Map.Entry<String, Integer> entry : teacherCourseCount.entrySet()) {
-            String teacherId = entry.getKey();
-            System.out.println("教师 ID: " + teacherId + ", 课程总数: " + entry.getValue());
             
-            // 打印每种课程的数量
-            if (teacherCourseNameCount.containsKey(teacherId)) {
-                for (Map.Entry<String, Integer> courseEntry : teacherCourseNameCount.get(teacherId).entrySet()) {
-                    System.out.println("  - 课程: '" + courseEntry.getKey() + "', 数量: " + courseEntry.getValue());
-                }
-            }
-        }
-        
-        System.out.println("\n排课保存完成: 成功 " + successCount + " 条，失败 " + failCount + " 条");
-        
-        if (successCount > 0) {
-            System.out.println("排课成功! 课表已保存到数据库");
-        } else {
-            System.out.println("警告: 所有记录均保存失败，请检查数据库错误日志");
+            System.out.println("\n排课保存完成: 成功 " + successCount + " 条，失败 " + failCount + " 条");
+        } catch (Exception e) {
+            System.out.println("保存排课结果时发生错误: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("保存排课结果失败", e);
         }
     }
     
@@ -1321,7 +958,7 @@ public class ScheduleService {
                 return timetableMapper.insertTimetable(timetable);
             } else {
                 // 插入新记录
-                return timetableMapper.insertTimetable(timetable);
+        return timetableMapper.insertTimetable(timetable);
             }
         } catch (Exception e) {
             System.out.println("保存排课记录失败: " + e.getMessage());
@@ -1486,7 +1123,7 @@ public class ScheduleService {
      */
     private Classroom findAvailableClassroom(List<Classroom> classrooms, int day, int period, List<Timetable> scheduleEntries) {
         if (classrooms == null || classrooms.isEmpty()) {
-            return null;
+        return null;
         }
         
         // 创建已占用教室ID集合
@@ -1559,5 +1196,65 @@ public class ScheduleService {
         calendar.set(Calendar.MILLISECOND, 0);
         
         return calendar.getTime();
+    }
+
+    public void autoScheduleMultiClass(int classCount) {
+        System.out.println("======== 开始为" + classCount + "个班级排课 ========");
+        
+        // 预加载所有数据，避免重复查询
+        List<Course> courses = courseService.list();
+        List<Teacher> teachers = teacherService.list();
+        List<Classroom> classrooms = classroomService.list();
+        
+        if (courses.isEmpty() || teachers.isEmpty() || classrooms.isEmpty()) {
+            System.out.println("错误：缺少排课所需数据，无法进行自动排课");
+            return;
+        }
+        
+        // 使用线程池并行处理多个班级的排课
+        int processors = Runtime.getRuntime().availableProcessors();
+        ExecutorService executor = Executors.newFixedThreadPool(processors);
+        List<Future<?>> futures = new ArrayList<>();
+        
+        for (int classId = 1; classId <= classCount; classId++) {
+            final int currentClassId = classId;
+            futures.add(executor.submit(() -> {
+                System.out.println("\n开始为第" + currentClassId + "班排课...");
+                autoSchedule(currentClassId);
+            }));
+        }
+        
+        // 等待所有班级排课完成
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        executor.shutdown();
+        System.out.println("======== 所有班级排课完成 ========");
+    }
+
+    // 添加新的辅助方法来检查时间冲突
+    private boolean hasTimeConflict(List<Object[]> genes, String teacherId, int day, int period, int classId) {
+        for (Object[] gene : genes) {
+            String existingTeacherId = (String) gene[1];
+            int existingDay = (int) gene[3];
+            int existingPeriod = (int) gene[4];
+            int existingClassId = (Integer) gene[5];
+            
+            // 检查教师在同一时间段是否已有课程
+            if (existingTeacherId.equals(teacherId) && existingDay == day && existingPeriod == period) {
+                return true;
+            }
+            
+            // 检查班级在同一时间段是否已有课程
+            if (existingClassId == classId && existingDay == day && existingPeriod == period) {
+                return true;
+            }
+        }
+        return false;
     }
 }

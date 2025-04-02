@@ -18,6 +18,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/schedule")
@@ -35,10 +36,17 @@ public class ScheduleController {
 
 
     // 自动排课接口
-    @PostMapping("/autoSchedule")
-    public String autoSchedule() {
-        scheduleService.autoSchedule();
-        return "Automatic scheduling completed.";
+    @PostMapping("/autoSchedule/{classId}")
+    public String autoSchedule(@PathVariable Integer classId) {
+        if (classId == null || classId <= 0) {
+            return "班级ID不能为空或小于等于0";
+        }
+        try {
+            scheduleService.autoSchedule(classId);
+            return "已完成第" + classId + "班的排课";
+        } catch (Exception e) {
+            return "排课失败：" + e.getMessage();
+        }
     }
 
     // 手工排课接口
@@ -54,13 +62,17 @@ public class ScheduleController {
         return timetableService.getAllTimetables();
     }
 
-    @GetMapping("/exportExcel")
-    public void exportExcel(HttpServletResponse response) throws IOException {
+    // 按班级查询课表
+    @GetMapping("/class/{classId}")
+    public List<Timetable> getClassTimetables(@PathVariable Integer classId) {
+        return timetableService.getTimetablesByClassId(classId);
+    }
 
-
-
-        // 查询数据库获取所有课表数据
-        List<Timetable> timetableList = timetableService.getAllTimetables();
+    // 修改导出Excel方法，支持按班级导出
+    @GetMapping("/exportExcel/{classId}")
+    public void exportExcel(@PathVariable Integer classId, HttpServletResponse response) throws IOException {
+        // 查询指定班级的课表数据
+        List<Timetable> timetableList = timetableService.getTimetablesByClassId(classId);
 
         // 课表格式：行（节次）× 列（星期）
         int maxPeriods = 12; // 假设一天最多 12 节课
@@ -117,4 +129,26 @@ public class ScheduleController {
         EasyExcel.write(response.getOutputStream()).sheet("课表").doWrite(excelData);
     }
 
+    // 多班级排课
+    @PostMapping("/autoScheduleMultiClass/{classCount}")
+    public String autoScheduleMultiClass(@PathVariable int classCount) {
+        if (classCount <= 0) {
+            return "班级数量必须大于0";
+        }
+        if (classCount > 50) {  // 添加上限检查
+            return "班级数量不能超过50";
+        }
+        try {
+            scheduleService.autoScheduleMultiClass(classCount);
+            return "已完成" + classCount + "个班级的排课";
+        } catch (Exception e) {
+            return "排课失败：" + e.getMessage();
+        }
+    }
+
+    // 查询所有班级的课表
+    @GetMapping("/allClasses")
+    public Map<Integer, List<Timetable>> getAllClassesTimetables() {
+        return timetableService.getAllClassesTimetables();
+    }
 }

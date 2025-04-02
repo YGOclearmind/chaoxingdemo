@@ -10,6 +10,7 @@ import java.util.List;
 public interface TimetableMapper {
 
     int insertTimetable(Timetable timetable);
-
     List<Timetable> getAllTimetables();
+    List<Timetable> getTimetablesByClassId(Integer classId);
+    int deleteByClassId(Integer classId);
 }

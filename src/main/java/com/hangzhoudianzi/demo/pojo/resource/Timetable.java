@@ -11,6 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class Timetable {
     private Integer id;
+    private Integer classId;
     private String courseId;
     private String teacherId;
     private String classroomId;
