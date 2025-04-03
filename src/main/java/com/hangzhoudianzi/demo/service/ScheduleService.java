@@ -403,11 +403,15 @@ public class ScheduleService {
         Map<String, Integer> teacherLoad = new HashMap<>();  // 教师课程负载
         Set<String> courseIds = new HashSet<>();  // 用于检查课程ID重复
         
+        // 班级每天课程数量统计
+        Map<Integer, Map<Integer, Integer>> classCoursesPerDay = new HashMap<>(); // 班级ID -> {天 -> 课程数}
+        
         int conflictCount = 0;
         
         for (Object[] gene : chromosome.genes) {
             String courseId = (String) gene[0];
             String teacherId = (String) gene[1];
+            String classroomId = (String) gene[2];
             int day = (int) gene[3];
             int period = (int) gene[4];
             int classId = (Integer) gene[5];
@@ -428,16 +432,80 @@ public class ScheduleService {
             
             // 更新教师课程负载
             teacherLoad.merge(teacherId, 1, Integer::sum);
-        }
-        
-        // 检查教师负载是否平衡
-        int avgLoad = chromosome.genes.size() / teacherLoad.size();
-        for (int load : teacherLoad.values()) {
-            if (Math.abs(load - avgLoad) > 2) {
-                conflictCount++;
+            
+            // 更新班级每天课程数量统计
+            classCoursesPerDay
+                .computeIfAbsent(classId, k -> new HashMap<>())
+                .merge(day, 1, Integer::sum);
+            
+            // 检查教室容量匹配度
+            Course course = findCourseById(courses, courseId);
+            Classroom classroom = findClassroomById(classrooms, classroomId);
+            
+            if (course != null && classroom != null) {
+                // 如果课程人数超过教室容量，增加冲突
+                int classSize = 0;
+                try {
+                    classSize = Integer.parseInt(course.getClassSize());
+                } catch (NumberFormatException e) {
+                    // 如果无法解析，使用默认值
+                    classSize = 30;
+                }
+                
+                if (classSize > classroom.getCapacity()) {
+                    conflictCount += 3;  // 教室容量不匹配惩罚
+                }
+                
+                // 考虑课程优先级
+                if (course.getPriority() != null && !course.getPriority().isEmpty()) {
+                    try {
+                        int priority = Integer.parseInt(course.getPriority());
+                        // 高优先级课程（1-2）在早上安排更好
+                        if (priority <= 2 && period > 4) {
+                            conflictCount += 1;  // 轻微惩罚高优先级课程安排在下午
+                        }
+                        
+                        // 体育课程优先安排在下午
+                        if ("体育".equals(course.getCourseNature()) && period <= 4) {
+                            conflictCount += 2;  // 中等惩罚体育课安排在上午
+                        }
+                    } catch (NumberFormatException e) {
+                        // 忽略无法解析的优先级
+                    }
+                }
             }
         }
         
+        // 检查教师负载是否平衡
+        for (int load : teacherLoad.values()) {
+            if (load > 16) {  // 如果教师负载超过16节课
+                conflictCount += (load - 16);
+            }
+        }
+        
+        // 检查班级课程分布均匀性
+        for (Map<Integer, Integer> dayLoads : classCoursesPerDay.values()) {
+            // 计算每天课程数的标准差，标准差越小表示分布越均匀
+            double mean = dayLoads.values().stream().mapToInt(Integer::intValue).average().orElse(0);
+            double variance = dayLoads.values().stream()
+                    .mapToDouble(count -> Math.pow(count - mean, 2))
+                    .average().orElse(0);
+            double stdDev = Math.sqrt(variance);
+            
+            // 标准差大于1.5表示分布不均匀，增加惩罚
+            if (stdDev > 1.5) {
+                conflictCount += Math.round(stdDev);
+            }
+            
+            // 检查每天课程数是否过多
+            for (int count : dayLoads.values()) {
+                if (count > 8) {  // 如果一天超过8节课
+                    conflictCount += (count - 8) * 2;
+                }
+            }
+        }
+        
+        // 计算适应度，冲突越少适应度越高
         return 1.0 / (1.0 + conflictCount);
     }
     
@@ -502,82 +570,73 @@ public class ScheduleService {
     private void mutate(Chromosome chromosome, List<Course> courses, List<Teacher> teachers, List<Classroom> classrooms) {
         Random random = new Random();
         
-        // 创建课程ID到课程对象的映射
-        Map<String, Course> courseMap = new HashMap<>();
-        for (Course course : courses) {
-            courseMap.put(course.getId(), course);
-        }
+        // 统计每个班级中各课程出现的次数
+        Map<Integer, Map<String, Integer>> classCourseCount = new HashMap<>();
         
-        // 统计教师课程数量
-        Map<String, Integer> teacherCourseCount = new HashMap<>();
-        for (Object[] gene : chromosome.genes) {
-            String teacherId = (String) gene[1];
-            teacherCourseCount.put(teacherId, teacherCourseCount.getOrDefault(teacherId, 0) + 1);
-        }
-        
-        // 找出课程数最多的教师和最少的教师
-        String maxTeacherId = null;
-        String minTeacherId = null;
-        int maxCount = -1;
-        int minCount = Integer.MAX_VALUE;
-        
-        for (Map.Entry<String, Integer> entry : teacherCourseCount.entrySet()) {
-            if (entry.getValue() > maxCount) {
-                maxCount = entry.getValue();
-                maxTeacherId = entry.getKey();
-            }
-            if (entry.getValue() < minCount) {
-                minCount = entry.getValue();
-                minTeacherId = entry.getKey();
-            }
-        }
-        
-        // 如果不平衡度高，提高变异概率
-        double currentMutationRate = MUTATION_RATE;
-        if (maxCount > 0 && minCount < maxCount / 2) {
-            currentMutationRate = MUTATION_RATE * 1.5;
-        }
-        
-        // 在变异时检查课程名称
-        Map<Integer, Map<String, Integer>> classCourseCounts = new HashMap<>();
-        
-        // 统计当前课程分布
+        // 首先统计课程分布情况
         for (Object[] gene : chromosome.genes) {
             String courseId = (String) gene[0];
             int classId = (Integer) gene[5];
             
-            Course course = courseMap.get(courseId);
-            if (course == null) continue;
-            
-            String courseName = course.getCourseName();
-            
-            classCourseCounts.computeIfAbsent(classId, k -> new HashMap<>())
-                            .merge(courseName, 1, Integer::sum);
+            classCourseCount
+                .computeIfAbsent(classId, k -> new HashMap<>())
+                .merge(courseId, 1, Integer::sum);
         }
         
-        // 在变异时避免生成过多相同课程
         for (int i = 0; i < chromosome.genes.size(); i++) {
-            if (random.nextDouble() < currentMutationRate) {
+            if (random.nextDouble() < MUTATION_RATE) {
                 Object[] gene = chromosome.genes.get(i);
                 String courseId = (String) gene[0];
                 int classId = (Integer) gene[5];
+                int day = (int) gene[3];
+                int period = (int) gene[4];
                 
-                Course course = courseMap.get(courseId);
-                if (course == null) continue;
+                // 获取当前班级的课程分布
+                Map<String, Integer> courseCount = classCourseCount.getOrDefault(classId, new HashMap<>());
                 
-                String courseName = course.getCourseName();
-                
-                // 如果当前课程在该班级出现次数过多，尝试替换为其他课程
-                if (classCourseCounts.get(classId).getOrDefault(courseName, 0) > 2) {
-                    // 寻找出现次数较少的其他课程进行替换
-                    for (Course otherCourse : courses) {
-                        String otherCourseName = otherCourse.getCourseName();
-                        if (!otherCourseName.equals(courseName) &&
-                            classCourseCounts.get(classId).getOrDefault(otherCourseName, 0) < 2) {
-                            gene[0] = otherCourse.getId();
-                            break;
+                // 如果某课程出现次数过多(>2)，尝试替换为出现次数较少的其他课程
+                if (courseCount.getOrDefault(courseId, 0) > 2) {
+                    // 找出出现次数最少的课程
+                    Optional<String> leastUsedCourse = courseCount.entrySet().stream()
+                            .filter(e -> e.getValue() < 2)  // 只考虑出现次数少于2的课程
+                            .min(Map.Entry.comparingByValue())
+                            .map(Map.Entry::getKey);
+                    
+                    if (leastUsedCourse.isPresent()) {
+                        // 更新课程计数
+                        courseCount.merge(courseId, -1, Integer::sum);
+                        courseCount.merge(leastUsedCourse.get(), 1, Integer::sum);
+                        
+                        // 更新基因
+                        gene[0] = leastUsedCourse.get();
+                        
+                        // 根据新课程的优先级调整时间段
+                        Course newCourse = findCourseById(courses, leastUsedCourse.get());
+                        if (newCourse != null && newCourse.getPriority() != null && !newCourse.getPriority().isEmpty()) {
+                            try {
+                                int priority = Integer.parseInt(newCourse.getPriority());
+                                // 高优先级课程（1-2）优先安排在上午
+                                if (priority <= 2 && period > 4) {
+                                    gene[4] = random.nextInt(4) + 1; // 1-4节为上午
+                                }
+                                
+                                // 体育课程优先安排在下午
+                                if ("体育".equals(newCourse.getCourseNature()) && period <= 4) {
+                                    gene[4] = random.nextInt(4) + 5; // 5-8节为下午
+                                }
+                            } catch (NumberFormatException e) {
+                                // 忽略无法解析的优先级
+                            }
                         }
+                    } else {
+                        // 如果没有出现次数少的课程，随机变异时间和教室
+                        gene[3] = random.nextInt(5) + 1; // 随机一天 (1-5)
+                        gene[4] = random.nextInt(8) + 1; // 随机一节 (1-8)
                     }
+                } else {
+                    // 正常变异：随机变异时间和教室
+                    gene[3] = random.nextInt(5) + 1; // 随机一天 (1-5)
+                    gene[4] = random.nextInt(8) + 1; // 随机一节 (1-8)
                 }
             }
         }
@@ -1256,5 +1315,21 @@ public class ScheduleService {
             }
         }
         return false;
+    }
+
+    // 辅助方法：根据ID查找课程
+    private Course findCourseById(List<Course> courses, String courseId) {
+        return courses.stream()
+                .filter(c -> c.getId().equals(courseId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    // 辅助方法：根据ID查找教室
+    private Classroom findClassroomById(List<Classroom> classrooms, String classroomId) {
+        return classrooms.stream()
+                .filter(c -> c.getId().equals(classroomId))
+                .findFirst()
+                .orElse(null);
     }
 }
