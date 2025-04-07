@@ -13,4 +13,5 @@ public interface TimetableMapper {
     List<Timetable> getAllTimetables();
     List<Timetable> getTimetablesByClassId(Integer classId);
     int deleteByClassId(Integer classId);
+    List<Timetable> getTimetablesByTeacherId(String teacherId);
 }

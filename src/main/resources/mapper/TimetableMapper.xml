@@ -13,7 +13,6 @@
         <result property="periodInfo" column="period_info" />
         <result property="dayOfWeek" column="day_of_week" />
         <result property="classId" column="class_id" />
-        <result property="className" column="class_name" />
     </resultMap>
 
     <!-- 插入课表记录 - 包含period_info字段和day_of_week字段 -->
@@ -34,7 +33,7 @@
         SELECT 
             id, course_id, teacher_id, classroom_id, 
             schedule_time, period_info, day_of_week,
-            class_id, class_name
+            class_id
         FROM timetable
     </select>
 
@@ -46,6 +45,16 @@
             class_id
         FROM timetable
         WHERE class_id = #{classId}
+    </select>
+
+    <!-- 添加按教师ID查询的方法 -->
+    <select id="getTimetablesByTeacherId" resultType="com.hangzhoudianzi.demo.pojo.resource.Timetable">
+        SELECT 
+            id, course_id, teacher_id, classroom_id, 
+            schedule_time, period_info, day_of_week,
+            class_id
+        FROM timetable
+        WHERE teacher_id = #{teacherId}
     </select>
 
     <delete id="deleteByClassId">

@@ -2,7 +2,9 @@ package com.hangzhoudianzi.demo.controller;
 
 import com.hangzhoudianzi.demo.mapper.TeacherMapper;
 import com.hangzhoudianzi.demo.pojo.people.Teacher;
+import com.hangzhoudianzi.demo.pojo.resource.Timetable;
 import com.hangzhoudianzi.demo.service.TeacherService;
+import com.hangzhoudianzi.demo.mapper.TimetableMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +17,8 @@ public class TeacherController {
     private TeacherService teacherService;
     @Autowired
     private TeacherMapper teacherMapper;
+    @Autowired
+    private TimetableMapper timetableMapper;
 
     @GetMapping("/getAllTeachers")
     public List<Teacher> getAllTeachers() {
@@ -58,5 +62,16 @@ public class TeacherController {
                 return "删除成功";
             }else return "删除失败";
         }
+    }
+
+    @GetMapping("/getTeacherTimeTable/{id}")
+    public List<Timetable> getTeacherTimeTable(@PathVariable("id") String id) throws Exception {
+        // 首先验证教师是否存在
+        Teacher teacher = teacherMapper.getTeacherById(id);
+        if(teacher == null){
+            throw new Exception("没有找到此老师");
+        }
+        // 获取该教师的所有课表记录
+        return timetableMapper.getTimetablesByTeacherId(id);
     }
 }
