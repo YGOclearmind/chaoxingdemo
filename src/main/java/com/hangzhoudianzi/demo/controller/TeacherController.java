@@ -1,6 +1,7 @@
 package com.hangzhoudianzi.demo.controller;
 
 import com.hangzhoudianzi.demo.mapper.TeacherMapper;
+import com.hangzhoudianzi.demo.pojo.people.Course;
 import com.hangzhoudianzi.demo.pojo.people.Teacher;
 import com.hangzhoudianzi.demo.pojo.resource.Timetable;
 import com.hangzhoudianzi.demo.service.TeacherService;
@@ -82,11 +83,9 @@ public class TeacherController {
         
         // 转换为DTO并添加额外信息
         return timetables.stream().map(timetable -> {
-            TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
+            Course course = timetable.getCourseId() != null ? courseService.getCourseById(timetable.getCourseId()) : null;
+            TimetableDTO dto = TimetableDTO.fromTimetableAndCourse(timetable, course);
             dto.setTeacherName(teacher.getName());
-            if(timetable.getCourseId() != null) {
-                dto.setCourseName(courseService.getCourseById(timetable.getCourseId()).getCourseName());
-            }
             return dto;
         }).collect(Collectors.toList());
     }
