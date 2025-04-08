@@ -1,6 +1,7 @@
 package com.hangzhoudianzi.demo.pojo.dto;
 
 import com.hangzhoudianzi.demo.pojo.resource.Timetable;
+import com.hangzhoudianzi.demo.pojo.people.Course;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -17,6 +18,8 @@ public class TimetableDTO {
     private Integer dayOfWeek;
     private String teacherName;
     private String courseName;
+    private int beginWeek;
+    private int endWeek;
 
     public static TimetableDTO fromTimetable(Timetable timetable) {
         TimetableDTO dto = new TimetableDTO();
@@ -28,6 +31,16 @@ public class TimetableDTO {
         dto.setScheduleTime(timetable.getScheduleTime() != null ? timetable.getScheduleTime().toString() : null);
         dto.setPeriodInfo(timetable.getPeriodInfo());
         dto.setDayOfWeek(timetable.getDayOfWeek());
+        return dto;
+    }
+
+    public static TimetableDTO fromTimetableAndCourse(Timetable timetable, Course course) {
+        TimetableDTO dto = fromTimetable(timetable);
+        if (course != null) {
+            dto.setCourseName(course.getCourseName());
+            dto.setBeginWeek(course.getBeginWeek());
+            dto.setEndWeek(course.getEndWeek());
+        }
         return dto;
     }
 } 

@@ -43,6 +43,11 @@ public class ScheduleController {
             return "班级ID不能为空或小于等于0";
         }
         try {
+            // 检查班级是否已经排过课程
+            List<Timetable> existingTimetables = timetableService.getTimetablesByClassId(classId);
+            if (!existingTimetables.isEmpty()) {
+                return "第" + classId + "班已经排过课程，如需重新排课请先清空原有课表";
+            }
             scheduleService.autoSchedule(classId);
             return "已完成第" + classId + "班的排课";
         } catch (Exception e) {
@@ -62,18 +67,12 @@ public class ScheduleController {
     public List<TimetableDTO> getAllTimetables() {
         List<Timetable> timetables = timetableService.getAllTimetables();
         return timetables.stream().map(timetable -> {
-            TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
-            if(timetable.getTeacherId() != null) {
-                Teacher teacher = teacherService.getTeacherById(timetable.getTeacherId());
-                if(teacher != null) {
-                    dto.setTeacherName(teacher.getName());
-                }
-            }
-            if(timetable.getCourseId() != null) {
-                Course course = courseService.getCourseById(timetable.getCourseId());
-                if(course != null) {
-                    dto.setCourseName(course.getCourseName());
-                }
+            Course course = timetable.getCourseId() != null ? courseService.getCourseById(timetable.getCourseId()) : null;
+            Teacher teacher = timetable.getTeacherId() != null ? teacherService.getTeacherById(timetable.getTeacherId()) : null;
+            
+            TimetableDTO dto = TimetableDTO.fromTimetableAndCourse(timetable, course);
+            if(teacher != null) {
+                dto.setTeacherName(teacher.getName());
             }
             return dto;
         }).collect(Collectors.toList());
@@ -84,18 +83,12 @@ public class ScheduleController {
     public List<TimetableDTO> getClassTimetables(@PathVariable Integer classId) {
         List<Timetable> timetables = timetableService.getTimetablesByClassId(classId);
         return timetables.stream().map(timetable -> {
-            TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
-            if(timetable.getTeacherId() != null) {
-                Teacher teacher = teacherService.getTeacherById(timetable.getTeacherId());
-                if(teacher != null) {
-                    dto.setTeacherName(teacher.getName());
-                }
-            }
-            if(timetable.getCourseId() != null) {
-                Course course = courseService.getCourseById(timetable.getCourseId());
-                if(course != null) {
-                    dto.setCourseName(course.getCourseName());
-                }
+            Course course = timetable.getCourseId() != null ? courseService.getCourseById(timetable.getCourseId()) : null;
+            Teacher teacher = timetable.getTeacherId() != null ? teacherService.getTeacherById(timetable.getTeacherId()) : null;
+            
+            TimetableDTO dto = TimetableDTO.fromTimetableAndCourse(timetable, course);
+            if(teacher != null) {
+                dto.setTeacherName(teacher.getName());
             }
             return dto;
         }).collect(Collectors.toList());
@@ -129,7 +122,8 @@ public class ScheduleController {
         // 填充课表内容
         for (TimetableDTO t : timetableList) {
             int day = t.getDayOfWeek(); // 星期几
-            String courseInfo = t.getCourseName() + " " + t.getTeacherName();
+            String courseInfo = t.getCourseName() + " " + t.getTeacherName() + 
+                              " (第" + t.getBeginWeek() + "-" + t.getEndWeek() + "周)";
 
             // 解析 periodInfo，例如："1,2,3"
             String periodInfo = t.getPeriodInfo();
@@ -183,18 +177,12 @@ public class ScheduleController {
             .collect(Collectors.toMap(
                 Map.Entry::getKey,
                 entry -> entry.getValue().stream().map(timetable -> {
-                    TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
-                    if(timetable.getTeacherId() != null) {
-                        Teacher teacher = teacherService.getTeacherById(timetable.getTeacherId());
-                        if(teacher != null) {
-                            dto.setTeacherName(teacher.getName());
-                        }
-                    }
-                    if(timetable.getCourseId() != null) {
-                        Course course = courseService.getCourseById(timetable.getCourseId());
-                        if(course != null) {
-                            dto.setCourseName(course.getCourseName());
-                        }
+                    Course course = timetable.getCourseId() != null ? courseService.getCourseById(timetable.getCourseId()) : null;
+                    Teacher teacher = timetable.getTeacherId() != null ? teacherService.getTeacherById(timetable.getTeacherId()) : null;
+                    
+                    TimetableDTO dto = TimetableDTO.fromTimetableAndCourse(timetable, course);
+                    if(teacher != null) {
+                        dto.setTeacherName(teacher.getName());
                     }
                     return dto;
                 }).collect(Collectors.toList())
