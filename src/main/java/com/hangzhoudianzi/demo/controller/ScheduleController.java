@@ -8,7 +8,7 @@ import com.hangzhoudianzi.demo.pojo.resource.Classroom;
 import com.hangzhoudianzi.demo.pojo.resource.Schedule;
 import com.hangzhoudianzi.demo.pojo.resource.Timetable;
 import com.hangzhoudianzi.demo.service.*;
-
+import com.hangzhoudianzi.demo.pojo.dto.TimetableDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/schedule")
@@ -58,21 +59,53 @@ public class ScheduleController {
 
     // 查询所有课表
     @GetMapping("/timetables")
-    public List<Timetable> getAllTimetables() {
-        return timetableService.getAllTimetables();
+    public List<TimetableDTO> getAllTimetables() {
+        List<Timetable> timetables = timetableService.getAllTimetables();
+        return timetables.stream().map(timetable -> {
+            TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
+            if(timetable.getTeacherId() != null) {
+                Teacher teacher = teacherService.getTeacherById(timetable.getTeacherId());
+                if(teacher != null) {
+                    dto.setTeacherName(teacher.getName());
+                }
+            }
+            if(timetable.getCourseId() != null) {
+                Course course = courseService.getCourseById(timetable.getCourseId());
+                if(course != null) {
+                    dto.setCourseName(course.getCourseName());
+                }
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     // 按班级查询课表
     @GetMapping("/class/{classId}")
-    public List<Timetable> getClassTimetables(@PathVariable Integer classId) {
-        return timetableService.getTimetablesByClassId(classId);
+    public List<TimetableDTO> getClassTimetables(@PathVariable Integer classId) {
+        List<Timetable> timetables = timetableService.getTimetablesByClassId(classId);
+        return timetables.stream().map(timetable -> {
+            TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
+            if(timetable.getTeacherId() != null) {
+                Teacher teacher = teacherService.getTeacherById(timetable.getTeacherId());
+                if(teacher != null) {
+                    dto.setTeacherName(teacher.getName());
+                }
+            }
+            if(timetable.getCourseId() != null) {
+                Course course = courseService.getCourseById(timetable.getCourseId());
+                if(course != null) {
+                    dto.setCourseName(course.getCourseName());
+                }
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     // 修改导出Excel方法，支持按班级导出
     @GetMapping("/exportExcel/{classId}")
     public void exportExcel(@PathVariable Integer classId, HttpServletResponse response) throws IOException {
         // 查询指定班级的课表数据
-        List<Timetable> timetableList = timetableService.getTimetablesByClassId(classId);
+        List<TimetableDTO> timetableList = getClassTimetables(classId);
 
         // 课表格式：行（节次）× 列（星期）
         int maxPeriods = 12; // 假设一天最多 12 节课
@@ -94,13 +127,9 @@ public class ScheduleController {
         }
 
         // 填充课表内容
-        for (Timetable t : timetableList) {
+        for (TimetableDTO t : timetableList) {
             int day = t.getDayOfWeek(); // 星期几
-            Course course = courseService.getCourseById(t.getCourseId());
-            Teacher teacher = teacherService.getTeacherById(t.getTeacherId());
-            Classroom classroom = classroomService.getClassroomById(t.getClassroomId());
-
-            String courseInfo = course.getCourseName() + " " + teacher.getName() + " " + classroom.getName();
+            String courseInfo = t.getCourseName() + " " + t.getTeacherName();
 
             // 解析 periodInfo，例如："1,2,3"
             String periodInfo = t.getPeriodInfo();
@@ -148,7 +177,27 @@ public class ScheduleController {
 
     // 查询所有班级的课表
     @GetMapping("/allClasses")
-    public Map<Integer, List<Timetable>> getAllClassesTimetables() {
-        return timetableService.getAllClassesTimetables();
+    public Map<Integer, List<TimetableDTO>> getAllClassesTimetables() {
+        Map<Integer, List<Timetable>> classTimetables = timetableService.getAllClassesTimetables();
+        return classTimetables.entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().stream().map(timetable -> {
+                    TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
+                    if(timetable.getTeacherId() != null) {
+                        Teacher teacher = teacherService.getTeacherById(timetable.getTeacherId());
+                        if(teacher != null) {
+                            dto.setTeacherName(teacher.getName());
+                        }
+                    }
+                    if(timetable.getCourseId() != null) {
+                        Course course = courseService.getCourseById(timetable.getCourseId());
+                        if(course != null) {
+                            dto.setCourseName(course.getCourseName());
+                        }
+                    }
+                    return dto;
+                }).collect(Collectors.toList())
+            ));
     }
 }

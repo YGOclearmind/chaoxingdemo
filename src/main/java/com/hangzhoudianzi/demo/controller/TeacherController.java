@@ -5,10 +5,13 @@ import com.hangzhoudianzi.demo.pojo.people.Teacher;
 import com.hangzhoudianzi.demo.pojo.resource.Timetable;
 import com.hangzhoudianzi.demo.service.TeacherService;
 import com.hangzhoudianzi.demo.mapper.TimetableMapper;
+import com.hangzhoudianzi.demo.service.CourseService;
+import com.hangzhoudianzi.demo.pojo.dto.TimetableDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/teachers")
@@ -19,6 +22,8 @@ public class TeacherController {
     private TeacherMapper teacherMapper;
     @Autowired
     private TimetableMapper timetableMapper;
+    @Autowired
+    private CourseService courseService;
 
     @GetMapping("/getAllTeachers")
     public List<Teacher> getAllTeachers() {
@@ -65,13 +70,24 @@ public class TeacherController {
     }
 
     @GetMapping("/getTeacherTimeTable/{id}")
-    public List<Timetable> getTeacherTimeTable(@PathVariable("id") String id) throws Exception {
+    public List<TimetableDTO> getTeacherTimeTable(@PathVariable("id") String id) throws Exception {
         // 首先验证教师是否存在
         Teacher teacher = teacherMapper.getTeacherById(id);
         if(teacher == null){
             throw new Exception("没有找到此老师");
         }
+        
         // 获取该教师的所有课表记录
-        return timetableMapper.getTimetablesByTeacherId(id);
+        List<Timetable> timetables = timetableMapper.getTimetablesByTeacherId(id);
+        
+        // 转换为DTO并添加额外信息
+        return timetables.stream().map(timetable -> {
+            TimetableDTO dto = TimetableDTO.fromTimetable(timetable);
+            dto.setTeacherName(teacher.getName());
+            if(timetable.getCourseId() != null) {
+                dto.setCourseName(courseService.getCourseById(timetable.getCourseId()).getCourseName());
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 }
